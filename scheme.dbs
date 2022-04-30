@@ -76,7 +76,7 @@
 		</table>
 		<table name="classes" >
 			<column name="name" type="varchar" length="100" decimal="0" jt="12" mandatory="y" />
-			<column name="study_year" type="varchar" length="2" decimal="0" jt="12" mandatory="y" />
+			<column name="study_year" type="numeric" length="2" decimal="0" jt="2" mandatory="y" />
 			<column name="class_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
 				<defo><![CDATA[nextval('classes_class_id_seq'::regclass)]]></defo>
 			</column>
