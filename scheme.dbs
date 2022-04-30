@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<project name="PostgreSQL" id="Project-204a" database="PostgreSQL" >
+	<schema name="public" >
+		<comment><![CDATA[standard public schema]]></comment>
+		<table name="book_types" >
+			<column name="subject_id" type="integer" length="10" decimal="0" jt="4" />
+			<column name="name" type="varchar" length="100" decimal="0" jt="12" mandatory="y" />
+			<column name="author" type="varchar" length="100" decimal="0" jt="12" />
+			<column name="publication_year" type="numeric" length="4" decimal="0" jt="2" />
+			<column name="publication" type="varchar" length="100" decimal="0" jt="12" />
+			<column name="permission" type="numeric" length="1" decimal="0" jt="2" mandatory="y" >
+				<defo><![CDATA[1]]></defo>
+			</column>
+			<column name="type_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('book_types_type_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="book_types_pkey" unique="PRIMARY_KEY" >
+				<column name="type_id" />
+			</index>
+			<constraint name="book_types_permission_check" >
+				<string><![CDATA[((permission = (0)::numeric) OR (permission = (1)::numeric))]]></string>
+			</constraint>
+			<fk name="book_types_subject_id_fkey" to_schema="public" to_table="subjects" >
+				<fk_column name="subject_id" pk="subject_id" />
+			</fk>
+		</table>
+		<table name="books" >
+			<column name="type_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="condition" type="numeric" length="2" decimal="0" jt="2" mandatory="y" >
+				<defo><![CDATA[10]]></defo>
+			</column>
+			<column name="book_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('books_book_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="books_pkey" unique="PRIMARY_KEY" >
+				<column name="book_id" />
+			</index>
+			<constraint name="books_condition_check" >
+				<string><![CDATA[((condition >= (0)::numeric) AND (condition <= (10)::numeric))]]></string>
+			</constraint>
+			<fk name="books_type_id_fkey" to_schema="public" to_table="book_types" >
+				<fk_column name="type_id" pk="type_id" />
+			</fk>
+		</table>
+		<table name="books_history" >
+			<column name="book_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="event_time" type="timestamp" decimal="6" jt="93" mandatory="y" >
+				<defo><![CDATA[now()]]></defo>
+			</column>
+			<column name="taken" type="boolean" length="1" decimal="0" jt="-7" mandatory="y" >
+				<defo><![CDATA[false]]></defo>
+			</column>
+			<column name="pupil_id" type="integer" length="10" decimal="0" jt="4" />
+			<column name="teacher_id" type="integer" length="10" decimal="0" jt="4" />
+			<column name="user_permission" type="numeric" length="2" decimal="0" jt="2" mandatory="y" >
+				<defo><![CDATA[0]]></defo>
+			</column>
+			<column name="id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('books_history_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="books_history_pkey" unique="PRIMARY_KEY" >
+				<column name="id" />
+			</index>
+			<constraint name="user_id_checker" >
+				<string><![CDATA[(((user_permission = (0)::numeric) AND (pupil_id IS NOT NULL) AND (teacher_id IS NULL)) OR ((user_permission = (1)::numeric) AND (pupil_id IS NULL) AND (teacher_id IS NOT NULL)))]]></string>
+			</constraint>
+			<fk name="books_history_book_id_fkey" to_schema="public" to_table="books" >
+				<fk_column name="book_id" pk="book_id" />
+			</fk>
+			<fk name="books_history_pupil_id_fkey" to_schema="public" to_table="pupils" >
+				<fk_column name="pupil_id" pk="pupil_id" />
+			</fk>
+			<fk name="books_history_teacher_id_fkey" to_schema="public" to_table="teachers" >
+				<fk_column name="teacher_id" pk="teacher_id" />
+			</fk>
+		</table>
+		<table name="classes" >
+			<column name="name" type="varchar" length="100" decimal="0" jt="12" mandatory="y" />
+			<column name="study_year" type="varchar" length="2" decimal="0" jt="12" mandatory="y" />
+			<column name="class_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('classes_class_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="classes_pkey" unique="PRIMARY_KEY" >
+				<column name="class_id" />
+			</index>
+		</table>
+		<table name="groups" >
+			<column name="class_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="subject_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="group_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('groups_group_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="groups_pkey" unique="PRIMARY_KEY" >
+				<column name="group_id" />
+			</index>
+			<fk name="groups_class_id_fkey" to_schema="public" to_table="classes" >
+				<fk_column name="class_id" pk="class_id" />
+			</fk>
+			<fk name="groups_subject_id_fkey" to_schema="public" to_table="subjects" >
+				<fk_column name="subject_id" pk="subject_id" />
+			</fk>
+		</table>
+		<table name="lessons" >
+			<column name="group_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="room_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="teacher_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="number" type="numeric" length="2" decimal="0" jt="2" mandatory="y" />
+			<column name="date" type="date" length="13" decimal="0" jt="91" mandatory="y" >
+				<defo><![CDATA[now()]]></defo>
+			</column>
+			<column name="lesson_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('lessons_lesson_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="lessons_pkey" unique="PRIMARY_KEY" >
+				<column name="lesson_id" />
+			</index>
+			<index name="lessons_room_id_number_date_key" unique="UNIQUE_KEY" >
+				<column name="room_id" />
+				<column name="number" />
+				<column name="date" />
+			</index>
+			<fk name="lessons_group_id_fkey" to_schema="public" to_table="groups" >
+				<fk_column name="group_id" pk="group_id" />
+			</fk>
+			<fk name="lessons_room_id_fkey" to_schema="public" to_table="rooms" >
+				<fk_column name="room_id" pk="room_id" />
+			</fk>
+			<fk name="lessons_teacher_id_fkey" to_schema="public" to_table="teachers" >
+				<fk_column name="teacher_id" pk="teacher_id" />
+			</fk>
+		</table>
+		<table name="marks" >
+			<column name="pupil_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="lesson_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="mark" type="numeric" length="2" decimal="0" jt="2" mandatory="y" />
+			<column name="id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('marks_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="marks_pkey" unique="PRIMARY_KEY" >
+				<column name="id" />
+			</index>
+			<index name="marks_pupil_id_lesson_id_key" unique="UNIQUE_KEY" >
+				<column name="pupil_id" />
+				<column name="lesson_id" />
+			</index>
+			<fk name="marks_lesson_id_fkey" to_schema="public" to_table="lessons" >
+				<fk_column name="lesson_id" pk="lesson_id" />
+			</fk>
+			<fk name="marks_pupil_id_fkey" to_schema="public" to_table="pupils" >
+				<fk_column name="pupil_id" pk="pupil_id" />
+			</fk>
+		</table>
+		<table name="pupil_groups" >
+			<column name="pupil_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="group_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('pupil_groups_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="pupil_groups_pkey" unique="PRIMARY_KEY" >
+				<column name="id" />
+			</index>
+			<fk name="pupil_groups_group_id_fkey" to_schema="public" to_table="groups" >
+				<fk_column name="group_id" pk="group_id" />
+			</fk>
+			<fk name="pupil_groups_pupil_id_fkey" to_schema="public" to_table="pupils" >
+				<fk_column name="pupil_id" pk="pupil_id" />
+			</fk>
+		</table>
+		<table name="pupils" >
+			<column name="date_of_birth" type="date" length="13" decimal="0" jt="91" mandatory="y" />
+			<column name="name" type="varchar" length="100" decimal="0" jt="12" mandatory="y" />
+			<column name="surname" type="varchar" length="100" decimal="0" jt="12" mandatory="y" />
+			<column name="class_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" />
+			<column name="pupil_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('pupils_pupil_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="pupils_pkey" unique="PRIMARY_KEY" >
+				<column name="pupil_id" />
+			</index>
+			<fk name="pupils_class_id_fkey" to_schema="public" to_table="classes" >
+				<fk_column name="class_id" pk="class_id" />
+			</fk>
+		</table>
+		<table name="rooms" >
+			<column name="name" type="varchar" length="100" decimal="0" jt="12" mandatory="y" />
+			<column name="seats" type="numeric" length="3" decimal="0" jt="2" mandatory="y" />
+			<column name="room_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('rooms_room_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="rooms_pkey" unique="PRIMARY_KEY" >
+				<column name="room_id" />
+			</index>
+		</table>
+		<table name="subjects" >
+			<column name="name" type="varchar" length="100" decimal="0" jt="12" mandatory="y" />
+			<column name="subject_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('subjects_subject_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="subjects_pkey" unique="PRIMARY_KEY" >
+				<column name="subject_id" />
+			</index>
+		</table>
+		<table name="teachers" >
+			<column name="name" type="varchar" length="100" decimal="0" jt="12" mandatory="y" />
+			<column name="surname" type="varchar" length="100" decimal="0" jt="12" mandatory="y" />
+			<column name="teacher_id" type="integer" length="10" decimal="0" jt="4" mandatory="y" >
+				<defo><![CDATA[nextval('teachers_teacher_id_seq'::regclass)]]></defo>
+			</column>
+			<index name="teachers_pkey" unique="PRIMARY_KEY" >
+				<column name="teacher_id" />
+			</index>
+		</table>
+		<sequence name="book_types_type_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="books_book_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="books_history_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="classes_class_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="groups_group_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="lessons_lesson_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="marks_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="pupil_groups_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="pupils_pupil_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="rooms_room_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="subjects_subject_id_seq" options="START WITH 1 INCREMENT BY 1" />
+		<sequence name="teachers_teacher_id_seq" options="START WITH 1 INCREMENT BY 1" />
+	</schema>
+	<connector name="PostgreSQL" database="PostgreSQL" driver_class="org.postgresql.Driver" driver_jar="postgresql-42.3.2.jar" driver_desc="Standard" host="localhost" port="5432" instance="postgres" user="postgres" passwd="MzE0MTU=" />
+	<layout name="Main Layout" id="Layout-80d" show_relation="columns" >
+		<entity schema="public" name="book_types" color="C7F4BE" x="800" y="304" />
+		<entity schema="public" name="books" color="C7F4BE" x="864" y="544" />
+		<entity schema="public" name="books_history" color="C7F4BE" x="576" y="432" />
+		<entity schema="public" name="classes" color="B3CCFF" x="576" y="160" />
+		<entity schema="public" name="groups" color="BED3F4" x="48" y="112" />
+		<entity schema="public" name="lessons" color="FFB3B3" x="48" y="288" />
+		<entity schema="public" name="marks" color="FFB3B3" x="288" y="368" />
+		<entity schema="public" name="pupil_groups" color="BED3F4" x="208" y="208" />
+		<entity schema="public" name="pupils" color="BED3F4" x="368" y="208" />
+		<entity schema="public" name="rooms" color="BED3F4" x="48" y="528" />
+		<entity schema="public" name="subjects" color="E6B3E6" x="816" y="80" />
+		<entity schema="public" name="teachers" color="B3CCFF" x="272" y="512" />
+		<group name="library" color="CCFFCC" >
+			<entity schema="public" name="books_history" />
+			<entity schema="public" name="books" />
+			<entity schema="public" name="book_types" />
+		</group>
+	</layout>
+	<layout name="~Layout with Sample Tools" id="Layout-243a" show_column_type="y" show_relation="columns" >
+		<entity schema="public" name="book_types" color="C7F4BE" x="1072" y="48" />
+		<entity schema="public" name="books" color="C7F4BE" x="1360" y="48" />
+		<entity schema="public" name="books_history" color="C7F4BE" x="784" y="48" />
+		<entity schema="public" name="classes" color="B3CCFF" x="512" y="48" />
+		<entity schema="public" name="groups" color="BED3F4" x="288" y="48" />
+		<entity schema="public" name="lessons" color="BED3F4" x="48" y="48" />
+		<entity schema="public" name="marks" color="BED3F4" x="528" y="288" />
+		<entity schema="public" name="pupil_groups" color="BED3F4" x="528" y="512" />
+		<entity schema="public" name="pupils" color="BED3F4" x="288" y="288" />
+		<entity schema="public" name="rooms" color="BED3F4" x="48" y="288" />
+		<entity schema="public" name="subjects" color="C7F4BE" x="1360" y="304" />
+		<entity schema="public" name="teachers" color="C7F4BE" x="1072" y="304" />
+		<script name="SQL Editor" id="Editor-108a" language="SQL" >
+			<string><![CDATA[SELECT class_id, subject_id, group_id
+FROM
+	"public".groups s;]]></string>
+		</script>
+		<browser id="Browse-1568" name="Relational Data Explorer" confirm_updates="y" >
+			<browse_table schema="public" entity="groups" x="20" y="20" width="400" height="300" >
+				<browse_table schema="public" entity="lessons" fk="lessons_group_id_fkey" x="440" y="20" width="500" height="350" >
+					<browse_table schema="public" entity="marks" fk="marks_lesson_id_fkey" x="960" y="20" width="500" height="350" />
+				</browse_table>
+			</browse_table>
+		</browser>
+		<query id="Query-10bf" name="Query Builder" >
+			<query_table schema="public" name="groups" alias="g1" x="48" y="48" >
+				<column name="class_id" />
+				<column name="subject_id" />
+				<column name="group_id" />
+				<query_table schema="public" name="lessons" alias="l" x="208" y="48" fk="lessons_group_id_fkey" type="Inner Join" >
+					<column name="group_id" />
+					<column name="room_id" />
+					<column name="teacher_id" />
+					<column name="number" />
+					<column name="date" />
+					<column name="lesson_id" />
+					<query_table schema="public" name="marks" alias="m1" x="368" y="48" fk="marks_lesson_id_fkey" type="Inner Join" >
+						<column name="pupil_id" />
+						<column name="lesson_id" />
+						<column name="mark" />
+						<column name="id" />
+					</query_table>
+				</query_table>
+			</query_table>
+		</query>
+		<form name="Report" id="Report-565" template="Page" css="container-fluid" view="frame" >
+			<var name="samplePageNumber" type="4" value="0" mandatory="n" />
+			<var name="sampleRecordsPerPage" type="4" value="100" mandatory="n" />
+			<body name="Body" template="Grid" pos="0,0,0,0,f,f" layout="{{-2,-2,-2,-2,-1},{-2,-2,-2,-2}}" scroll="n" html="n" >
+				<cell type="label" name="Groups Data" template="H3" pos="0,0,1,0,l,c" />
+				<cell type="chart" name="Pie" template="Pie" pos="0,1,4,1,l,c" max_records="20" >
+					<form_script type="DataSource" language="SQL" >
+						<var name="class_id" type="4" />
+						<var name="subject_id" type="4" />
+						<var name="group_id" type="4" />
+						<script ><![CDATA[SELECT * FROM "public".groups]]></script>
+					</form_script>
+					<param name="width" value="100%" />
+					<param name="v0" value="group_id" />
+					<param name="title" value="Sample Chart" />
+					<param name="height" value="400px" />
+				</cell>
+				<tableview name="sample" template="Table" css="table table-striped table-sm table-hover" pos="0,2,4,2,f,f" layout="{{-2,-2,-2,-2},{-2,-2}}" scroll="n" html="n" header_rows="1" >
+					<form_script type="DataSource" language="SQL" >
+						<var name="class_id" type="4" />
+						<var name="subject_id" type="4" />
+						<var name="group_id" type="4" />
+						<script ><![CDATA[SELECT * FROM "public".groups]]></script>
+					</form_script>
+					<cell type="label" name="class_id" pos="0,0,0,0,c,c" />
+					<cell type="label" name="subject_id" pos="1,0,1,0,c,c" />
+					<cell type="label" name="group_id" pos="2,0,2,0,c,c" />
+					<cell type="label" name="Button can open other pages." pos="3,0,3,0,c,c" />
+					<cell type="label" name="${class_id}" template="Plain" pos="0,1,0,1,l,c" />
+					<cell type="label" name="${subject_id}" template="Plain" pos="1,1,1,1,l,c" />
+					<cell type="label" name="${group_id}" template="Plain" pos="2,1,2,1,l,c" />
+					<cell type="button" name="More" template="Plain" css="btn btn-default btn-success" pos="3,1,3,1,c,c" ref_id="Report-565" />
+				</tableview>
+				<cell type="href" name="" disabled="${samplePageNumber&lt;1}" pos="0,3,0,3,l,c" glyph="FA-ANGLE_DOUBLE_LEFT" ref_id="Report-565" >
+					<var name="samplePageNumber" value="0" />
+				</cell>
+				<cell type="href" name="" disabled="${samplePageNumber&lt;1}" pos="1,3,1,3,l,c" glyph="FA-ANGLE_LEFT" ref_id="Report-565" >
+					<var name="samplePageNumber" value="${Math.max(0,samplePageNumber-1)}" />
+				</cell>
+				<cell type="label" name="Page ${samplePageNumber+1}" pos="2,3,2,3,l,c" />
+				<cell type="href" name="" disabled="${!sampleHasNextPage}" pos="3,3,3,3,l,c" glyph="FA-ANGLE_RIGHT" ref_id="Report-565" >
+					<var name="samplePageNumber" value="${( samplePageNumber+1 )}" />
+				</cell>
+			</body>
+		</form>
+	</layout>
+</project>
