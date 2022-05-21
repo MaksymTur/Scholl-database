@@ -1,17 +1,3 @@
-DROP TABLE IF EXISTS schedule CASCADE;
-DROP TABLE IF EXISTS book_types CASCADE;
-DROP TABLE IF EXISTS books CASCADE;
-DROP TABLE IF EXISTS books_history CASCADE;
-DROP TABLE IF EXISTS rooms CASCADE;
-DROP TABLE IF EXISTS marks CASCADE;
-DROP TABLE IF EXISTS "groups" CASCADE;
-DROP TABLE IF EXISTS pupils CASCADE;
-DROP TABLE IF EXISTS subjects CASCADE;
-DROP TABLE IF EXISTS lessons CASCADE;
-DROP TABLE IF EXISTS teachers CASCADE;
-DROP TABLE IF EXISTS classes CASCADE;
-DROP TABLE IF EXISTS pupil_groups CASCADE;
-
 CREATE TYPE week_day AS enum('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
 CREATE TYPE parity AS enum('odd', 'even');
 CREATE TYPE bell_event AS
@@ -57,12 +43,6 @@ CREATE TABLE pupils
     pupil_id      serial PRIMARY KEY
 );
 
-CREATE TABLE journal
-(
-    pupil_id int REFERENCES pupils NOT NULL,
-    event_id int REFERENCES events NOT NULL
-);
-
 CREATE TABLE themes
 (
     title text NOT NULL,
@@ -88,18 +68,18 @@ CREATE TABLE bell_shedule_history
     change_time timestamp DEFAULT now() NOT NULL
 );
 
+CREATE TABLE "groups"
+(
+    subject_id integer REFERENCES subjects NOT NULL,
+    group_id   serial PRIMARY KEY
+);
+
 CREATE TABLE groups_history
 (
     pupil_id    int REFERENCES pupils   NOT NULL,
     group_id    int REFERENCES "groups" NOT NULL,
     change_time timestamp DEFAULT now() NOT NULL,
     added       bool      DEFAULT TRUE  NOT NULL
-);
-
-CREATE TABLE "groups"
-(
-    subject_id integer REFERENCES subjects NOT NULL,
-    group_id   serial PRIMARY KEY
 );
 
 CREATE TABLE complex_groups
@@ -139,7 +119,7 @@ CREATE TABLE events
     event_time       bell_event                        NOT NULL,
     event_id         serial PRIMARY KEY,
 
-    UNIQUE (room_id, "number", date)
+    UNIQUE (room_id, event_time)
 );
 
 CREATE TABLE marks
@@ -181,7 +161,7 @@ CREATE TABLE workers_history(
     added boolean NOT NULL,
     change_time timestamp NOT NULL,
 
-    PRIMARY KEY (worker_id, post_id, change_date)
+    PRIMARY KEY (worker_id, post_id, change_time)
 );
 
 CREATE TABLE salary_history(
@@ -189,7 +169,7 @@ CREATE TABLE salary_history(
     salary int NOT NULL,
     change_time timestamp NOT NULL,
 
-    PRIMARY KEY (worker_id, change_date)
+    PRIMARY KEY (worker_id, change_time)
 );
 
 CREATE TABLE classes(
@@ -206,7 +186,7 @@ CREATE TABLE class_history(
     change_time timestamp NOT NULL,
     added boolean NOT NULL,
 
-    PRIMARY KEY (pupil_id, class_id, change_date)
+    PRIMARY KEY (pupil_id, class_id, change_time)
 );
 
 CREATE TABLE class_teacher_history(
@@ -214,4 +194,10 @@ CREATE TABLE class_teacher_history(
     teacher_id int REFERENCES teachers NOT NULL,
     change_time timestamp NOT NULL,
     PRIMARY KEY (class_id, teacher_id, change_time)
+);
+
+CREATE TABLE journal
+(
+    pupil_id int REFERENCES pupils NOT NULL,
+    event_id int REFERENCES events NOT NULL
 );
