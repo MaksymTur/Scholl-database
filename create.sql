@@ -42,50 +42,41 @@ CREATE TABLE subjects
 
 CREATE TABLE pupils
 (
-    date_of_birth date                   NOT NULL,
-    "name"        varchar(100)           NOT NULL,
-    surname       varchar(100)           NOT NULL,
-    class_id      int REFERENCES classes NOT NULL,
+    date_of_birth date         NOT NULL,
+    first_name    varchar(100) NOT NULL,
+    second_name   varchar(100) NOT NULL,
     pupil_id      serial PRIMARY KEY
 );
 
-CREATE TABLE book_types
+CREATE TABLE journal
 (
-    subject_id         int REFERENCES subjects,
-    name               varchar(100)         NOT NULL,
-    author             varchar(100),
-    "publication_year" numeric(4),
-    "publication"      varchar(100),
-    permission         numeric(1) DEFAULT 1 NOT NULL,
-    type_id            serial PRIMARY KEY,
-
-    CHECK (permission = 0 OR permission = 1)
+    pupil_id int REFERENCES pupils NOT NULL,
+    event_id int REFERENCES events NOT NULL
 );
 
-CREATE TABLE books
+CREATE TABLE excuses
 (
-    type_id   int REFERENCES book_types NOT NULL,
-    condition numeric(2) DEFAULT 10     NOT NULL,
-    book_id   serial PRIMARY KEY,
-
-    CHECK (condition >= 0 AND condition <= 10)
+    pupil_id   int REFERENCES pupils NOT NULL,
+    reason     text,
+    begin_bell bell_event,
+    end_bell   bell_event
 );
 
-CREATE TABLE books_history
+CREATE TABLE bell_shedule_history
 (
-    book_id         int REFERENCES books                      NOT NULL,
-    event_time      timestamp without time zone DEFAULT now() NOT NULL,
-    taken           boolean                     DEFAULT false NOT NULL,
-    pupil_id        int REFERENCES pupils,
-    teacher_id      int REFERENCES teachers,
-    user_permission numeric(2)                  DEFAULT 0     NOT NULL,
-    id              SERIAL PRIMARY KEY,
-
-    CONSTRAINT user_id_checker
-        CHECK ((user_permission = 0 AND pupil_id IS NOT NULL AND teacher_id IS NULL) OR
-               (user_permission = 1 AND pupil_id IS NULL AND teacher_id IS NOT NULL))
+    bell_number int,
+    begin_time  time                    NOT NULL,
+    end_time    time                    NOT NULL,
+    change_time timestamp DEFAULT now() NOT NULL
 );
 
+CREATE TABLE groups_history
+(
+    pupil_id    int REFERENCES pupils   NOT NULL,
+    group_id    int REFERENCES "groups" NOT NULL,
+    change_time timestamp DEFAULT now() NOT NULL,
+    added       bool      DEFAULT TRUE  NOT NULL
+);
 
 CREATE TABLE "groups"
 (
@@ -121,6 +112,12 @@ CREATE TABLE marks
     id        serial PRIMARY KEY,
 
     UNIQUE (pupil_id, lesson_id)
+);
+
+CREATE TYPE bell_event AS
+(
+    "day" date,
+    bell  integer
 );
 
 
