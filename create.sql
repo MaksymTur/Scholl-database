@@ -29,12 +29,12 @@ CREATE TABLE rooms
 
 );
 
-CREATE TABLE classes
+/*CREATE TABLE classes
 (
     "name"     varchar(100) NOT NULL,
     study_year numeric(2)   NOT NULL,
     class_id   serial PRIMARY KEY
-);
+);*/
 
 CREATE TABLE teachers
 (
@@ -163,3 +163,55 @@ CREATE TABLE holidays
     end_date date NOT NULL
 );
 
+CREATE TABLE workers(
+    title text,
+    surname text,
+    worker_id serial PRIMARY KEY
+);
+
+CREATE TABLE posts(
+    title text,
+    salary int,
+    post_id serial PRIMARY KEY
+);
+
+CREATE TABLE workers_history(
+    worker_id int REFERENCES workers NOT NULL,
+    post_id int REFERENCES posts NOT NULL,
+    added boolean NOT NULL,
+    change_time timestamp NOT NULL,
+
+    PRIMARY KEY (worker_id, post_id, change_date)
+);
+
+CREATE TABLE salary_history(
+    worker_id int REFERENCES workers NOT NULL,
+    salary int NOT NULL,
+    change_time timestamp NOT NULL,
+
+    PRIMARY KEY (worker_id, change_date)
+);
+
+CREATE TABLE classes(
+    title text NOT NULL,
+    study_year int NOT NULL,
+    class_id serial PRIMARY KEY,
+
+    CHECK (study_year > 0 AND study_year < 13)
+);
+
+CREATE TABLE class_history(
+    pupil_id int REFERENCES pupils NOT NULL,
+    class_id int REFERENCES  classes NOT NULL,
+    change_time timestamp NOT NULL,
+    added boolean NOT NULL,
+
+    PRIMARY KEY (pupil_id, class_id, change_date)
+);
+
+CREATE TABLE class_teacher_history(
+    class_id int REFERENCES classes NOT NULL,
+    teacher_id int REFERENCES teachers NOT NULL,
+    change_time timestamp NOT NULL,
+    PRIMARY KEY (class_id, teacher_id, change_time)
+);
