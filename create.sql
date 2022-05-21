@@ -12,12 +12,21 @@ DROP TABLE IF EXISTS teachers CASCADE;
 DROP TABLE IF EXISTS classes CASCADE;
 DROP TABLE IF EXISTS pupil_groups CASCADE;
 
+CREATE TYPE week_day AS enum('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
+CREATE TYPE parity AS enum('odd', 'even');
+CREATE TYPE bell_event AS
+(
+    "day" date,
+    bell  integer
+);
 
 CREATE TABLE rooms
 (
-    "name"  varchar(100) NOT NULL,
-    seats   numeric(3)   NOT NULL,
-    room_id serial PRIMARY KEY
+    title     text    NOT NULL,
+    room_type text    NOT NULL,
+    seats     integer NOT NULL,
+    room_id   serial PRIMARY KEY
+
 );
 
 CREATE TABLE classes
@@ -36,7 +45,7 @@ CREATE TABLE teachers
 
 CREATE TABLE subjects
 (
-    "name"     varchar(100) NOT NULL,
+    title      text NOT NULL,
     subject_id serial PRIMARY KEY
 );
 
@@ -52,6 +61,15 @@ CREATE TABLE journal
 (
     pupil_id int REFERENCES pupils NOT NULL,
     event_id int REFERENCES events NOT NULL
+);
+
+CREATE TABLE themes
+(
+    title text NOT NULL,
+    lessons_length integer NOT NULL,
+    theme_order integer NOT NULL,
+
+    theme_id serial PRIMARY KEY
 );
 
 CREATE TABLE excuses
@@ -80,9 +98,19 @@ CREATE TABLE groups_history
 
 CREATE TABLE "groups"
 (
-    class_id   int REFERENCES classes  NOT NULL,
-    subject_id int REFERENCES subjects NOT NULL,
+    subject_id integer REFERENCES subjects NOT NULL,
     group_id   serial PRIMARY KEY
+);
+
+CREATE TABLE complex_groups
+(
+    complex_group_id serial PRIMARY KEY
+);
+
+CREATE TABLE complex_group_groups
+(
+    complex_group_id integer REFERENCES complex_groups,
+    group_id         integer REFERENCES "groups"
 );
 
 CREATE TABLE pupil_groups
@@ -92,32 +120,46 @@ CREATE TABLE pupil_groups
     id       serial PRIMARY KEY
 );
 
-CREATE TABLE lessons
+CREATE TABLE schedule_history
 (
-    group_id   int REFERENCES "groups" NOT NULL,
-    room_id    int REFERENCES rooms    NOT NULL,
-    teacher_id int REFERENCES teachers NOT NULL,
-    "number"   numeric(2)              NOT NULL,
-    "date"     date DEFAULT now()      NOT NULL,
-    lesson_id  serial PRIMARY KEY,
+    complex_group_id integer REFERENCES complex_groups NOT NULL,
+    teacher_id integer REFERENCES teachers,
+    room_id integer REFERENCES rooms,
+    "week_day" week_day NOT NULL,
+    week_pair parity,
+    change_time timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE events
+(
+    complex_group_id integer REFERENCES complex_groups NOT NULL,
+    room_id          integer REFERENCES rooms,
+    teacher_id       integer REFERENCES teachers       NOT NULL,
+    theme_id         integer REFERENCES themes,
+    event_time       bell_event                        NOT NULL,
+    event_id         serial PRIMARY KEY,
 
     UNIQUE (room_id, "number", date)
 );
 
 CREATE TABLE marks
 (
-    pupil_id  int REFERENCES pupils  NOT NULL,
-    lesson_id int REFERENCES lessons NOT NULL,
-    mark      numeric(2)             NOT NULL,
-    id        serial PRIMARY KEY,
+    pupil_id integer REFERENCES pupils NOT NULL,
+    event_id integer REFERENCES events NOT NULL,
+    mark     integer                   NOT NULL,
 
-    UNIQUE (pupil_id, lesson_id)
+    PRIMARY KEY (pupil_id, event_id)
 );
 
-CREATE TYPE bell_event AS
+CREATE TABLE quarters
 (
-    "day" date,
-    bell  integer
+    begin_date date NOT NULL,
+    end_date date NOT NULL
 );
 
+CREATE TABLE holidays
+(
+    begin_date date NOT NULL,
+    end_date date NOT NULL
+);
 
