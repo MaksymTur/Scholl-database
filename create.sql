@@ -22,13 +22,6 @@ CREATE TABLE rooms
     class_id   serial PRIMARY KEY
 );*/
 
-CREATE TABLE teachers
-(
-    "name"     varchar(100) NOT NULL,
-    surname    varchar(100) NOT NULL,
-    teacher_id serial PRIMARY KEY
-);
-
 CREATE TABLE subjects
 (
     title      text NOT NULL,
@@ -78,19 +71,8 @@ CREATE TABLE groups_history
 (
     pupil_id    int REFERENCES pupils   NOT NULL,
     group_id    int REFERENCES "groups" NOT NULL,
-    change_time timestamp DEFAULT now() NOT NULL,
-    added       bool      DEFAULT TRUE  NOT NULL
-);
-
-CREATE TABLE complex_groups
-(
-    complex_group_id serial PRIMARY KEY
-);
-
-CREATE TABLE complex_group_groups
-(
-    complex_group_id integer REFERENCES complex_groups,
-    group_id         integer REFERENCES "groups"
+    add_time timestamp DEFAULT now() NOT NULL,
+    deletion_time timestamp DEFAULT NULL
 );
 
 CREATE TABLE pupil_groups
@@ -102,19 +84,20 @@ CREATE TABLE pupil_groups
 
 CREATE TABLE schedule_history
 (
-    complex_group_id integer REFERENCES complex_groups NOT NULL,
-    teacher_id integer REFERENCES teachers,
+    teacher_id integer REFERENCES workers,
     room_id integer REFERENCES rooms,
+    bell_number integer,
     "week_day" week_day NOT NULL,
     week_pair parity,
-    change_time timestamp DEFAULT now() NOT NULL
+    change_time timestamp DEFAULT now() NOT NULL,
+
+    PRIMARY KEY (room_id, bell_number, "week_day", week_pair)
 );
 
 CREATE TABLE events
 (
-    complex_group_id integer REFERENCES complex_groups NOT NULL,
     room_id          integer REFERENCES rooms,
-    teacher_id       integer REFERENCES teachers       NOT NULL,
+    teacher_id       integer REFERENCES workers       NOT NULL,
     theme_id         integer REFERENCES themes,
     event_time       bell_event                        NOT NULL,
     event_id         serial PRIMARY KEY,
@@ -144,14 +127,13 @@ CREATE TABLE holidays
 );
 
 CREATE TABLE workers(
-    title text,
-    surname text,
+    first_name text,
+    second_name text,
     worker_id serial PRIMARY KEY
 );
 
 CREATE TABLE posts(
     title text,
-    salary int,
     post_id serial PRIMARY KEY
 );
 
@@ -183,15 +165,15 @@ CREATE TABLE classes(
 CREATE TABLE class_history(
     pupil_id int REFERENCES pupils NOT NULL,
     class_id int REFERENCES  classes NOT NULL,
-    change_time timestamp NOT NULL,
-    added boolean NOT NULL,
+    add_time timestamp NOT NULL,
+    deletion_time timestamp DEFAULT NULL,
 
-    PRIMARY KEY (pupil_id, class_id, change_time)
+    PRIMARY KEY (pupil_id, class_id, add_time)
 );
 
 CREATE TABLE class_teacher_history(
     class_id int REFERENCES classes NOT NULL,
-    teacher_id int REFERENCES teachers NOT NULL,
+    teacher_id int REFERENCES workers NOT NULL,
     change_time timestamp NOT NULL,
     PRIMARY KEY (class_id, teacher_id, change_time)
 );
@@ -200,4 +182,14 @@ CREATE TABLE journal
 (
     pupil_id int REFERENCES pupils NOT NULL,
     event_id int REFERENCES events NOT NULL
+);
+
+CREATE TABLE groups_to_events(
+    "group" int REFERENCES groups NOT NULL,
+    event int REFERENCES events NOT NULL
+);
+
+CREATE TABLE groups_to_shedule(
+    "group" int REFERENCES groups NOT NULL,
+    event_in_shedule int REFERENCES schedule_history NOT NULL
 );
