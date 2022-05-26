@@ -82,6 +82,26 @@ CREATE TABLE pupil_groups
     id       serial PRIMARY KEY
 );
 
+CREATE TABLE workers(
+    first_name text,
+    second_name text,
+    worker_id serial PRIMARY KEY
+);
+
+CREATE TABLE posts(
+    title text,
+    post_id serial PRIMARY KEY
+);
+
+CREATE TABLE workers_history(
+    worker_id int REFERENCES workers NOT NULL,
+    post_id int REFERENCES posts NOT NULL,
+    added boolean NOT NULL,
+    change_time timestamp NOT NULL,
+
+    PRIMARY KEY (worker_id, post_id, change_time)
+);
+
 CREATE TABLE schedule_history
 (
     teacher_id integer REFERENCES workers,
@@ -91,7 +111,9 @@ CREATE TABLE schedule_history
     week_pair parity,
     change_time timestamp DEFAULT now() NOT NULL,
 
-    PRIMARY KEY (room_id, bell_number, "week_day", week_pair)
+    id serial PRIMARY KEY,
+
+    UNIQUE (room_id, bell_number, "week_day", week_pair)
 );
 
 CREATE TABLE events
@@ -124,26 +146,6 @@ CREATE TABLE holidays
 (
     begin_date date NOT NULL,
     end_date date NOT NULL
-);
-
-CREATE TABLE workers(
-    first_name text,
-    second_name text,
-    worker_id serial PRIMARY KEY
-);
-
-CREATE TABLE posts(
-    title text,
-    post_id serial PRIMARY KEY
-);
-
-CREATE TABLE workers_history(
-    worker_id int REFERENCES workers NOT NULL,
-    post_id int REFERENCES posts NOT NULL,
-    added boolean NOT NULL,
-    change_time timestamp NOT NULL,
-
-    PRIMARY KEY (worker_id, post_id, change_time)
 );
 
 CREATE TABLE salary_history(
@@ -189,7 +191,7 @@ CREATE TABLE groups_to_events(
     event int REFERENCES events NOT NULL
 );
 
-CREATE TABLE groups_to_shedule(
+CREATE TABLE groups_to_schedule(
     "group" int REFERENCES groups NOT NULL,
-    event_in_shedule int REFERENCES schedule_history NOT NULL
+    event_in_schedule int REFERENCES schedule_history NOT NULL
 );
