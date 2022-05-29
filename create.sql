@@ -1,5 +1,5 @@
-CREATE TYPE week_day AS enum('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
-CREATE TYPE parity AS enum('odd', 'even');
+CREATE TYPE week_day AS enum ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
+CREATE TYPE parity AS enum ('odd', 'even');
 CREATE TYPE bell_event AS
 (
     "day" date,
@@ -42,16 +42,16 @@ CREATE TABLE pupils
 
 CREATE TABLE themes
 (
-    title text NOT NULL,
-    subject_id int REFERENCES subjects NOT NULL ,
-    lessons_length integer NOT NULL,
-    theme_order integer NOT NULL,
+    title          text                    NOT NULL,
+    subject_id     int REFERENCES subjects NOT NULL,
+    lessons_length integer                 NOT NULL,
+    theme_order    integer                 NOT NULL,
 
-    theme_id serial PRIMARY KEY,
+    theme_id       serial PRIMARY KEY,
 
     CHECK ( lessons_length > 0 ),
-    UNIQUE ( title, subject_id ),
-    UNIQUE ( subject_id, theme_order )
+    UNIQUE (title, subject_id),
+    UNIQUE (subject_id, theme_order)
 );
 
 CREATE TABLE excuses
@@ -64,26 +64,26 @@ CREATE TABLE excuses
 
 CREATE TABLE bell_schedule_history
 (
-    bell_number     int,
-    begin_time      time                    NOT NULL,
-    end_time        time                    NOT NULL,
-    change_time     date DEFAULT now()      NOT NULL
+    bell_number int,
+    begin_time  time               NOT NULL,
+    end_time    time               NOT NULL,
+    change_time date DEFAULT now() NOT NULL,
 
     CHECK ( begin_time < end_time )
 );
 
 CREATE TABLE "groups"
 (
-    title text NOT NULL,
+    title      text                        NOT NULL,
     subject_id integer REFERENCES subjects NOT NULL,
     group_id   serial PRIMARY KEY
 );
 
 CREATE TABLE groups_history
 (
-    pupil_id    int REFERENCES pupils   NOT NULL,
-    group_id    int REFERENCES "groups" NOT NULL,
-    add_time    timestamp DEFAULT now() NOT NULL,
+    pupil_id      int REFERENCES pupils   NOT NULL,
+    group_id      int REFERENCES "groups" NOT NULL,
+    add_time      timestamp DEFAULT now() NOT NULL,
     deletion_time timestamp DEFAULT NULL,
 
     PRIMARY KEY (pupil_id, group_id, add_time),
@@ -98,23 +98,26 @@ CREATE TABLE pupil_groups
     id       serial PRIMARY KEY
 );
 
-CREATE TABLE workers(
-    first_name text,
+CREATE TABLE workers
+(
+    first_name  text,
     second_name text,
-    worker_id serial PRIMARY KEY
+    worker_id   serial PRIMARY KEY
 );
 
-CREATE TABLE posts(
-    title text,
+CREATE TABLE posts
+(
+    title   text,
     post_id serial PRIMARY KEY
 );
 
 
-CREATE TABLE workers_history(
+CREATE TABLE workers_history
+(
     worker_id int REFERENCES workers NOT NULL,
-    post_id int REFERENCES posts NOT NULL,
-    from_time timestamp NOT NULL,
-    to_time timestamp DEFAULT NULL,
+    post_id   int REFERENCES posts   NOT NULL,
+    from_time timestamp              NOT NULL,
+    to_time   timestamp DEFAULT NULL,
 
     PRIMARY KEY (worker_id, post_id, from_time),
 
@@ -125,14 +128,14 @@ CREATE TABLE workers_history(
 
 CREATE TABLE schedule_history
 (
-    teacher_id integer REFERENCES workers NOT NULL,
-    room_id integer REFERENCES rooms,
+    teacher_id  integer REFERENCES workers NOT NULL,
+    room_id     integer REFERENCES rooms,
     bell_number integer,
-    "week_day" week_day NOT NULL,
-    week_pair parity,
-    change_time timestamp DEFAULT now() NOT NULL,
+    "week_day"  week_day                   NOT NULL,
+    week_pair   parity,
+    change_time timestamp DEFAULT now()    NOT NULL,
 
-    id serial PRIMARY KEY,
+    id          serial PRIMARY KEY,
 
 
     UNIQUE (teacher_id, room_id, bell_number, "week_day", week_pair, change_time)
@@ -140,11 +143,11 @@ CREATE TABLE schedule_history
 
 CREATE TABLE events
 (
-    room_id          integer REFERENCES rooms,
-    teacher_id       integer REFERENCES workers       NOT NULL,
-    theme_id         integer REFERENCES themes,
-    event_time       bell_event                        NOT NULL,
-    event_id         serial PRIMARY KEY,
+    room_id    integer REFERENCES rooms,
+    teacher_id integer REFERENCES workers NOT NULL,
+    theme_id   integer REFERENCES themes,
+    event_time bell_event                 NOT NULL,
+    event_id   serial PRIMARY KEY,
 
     UNIQUE (teacher_id, event_time)
 );
@@ -161,7 +164,7 @@ CREATE TABLE marks
 CREATE TABLE quarters
 (
     begin_date date NOT NULL,
-    end_date date NOT NULL,
+    end_date   date NOT NULL,
 
     PRIMARY KEY (begin_date, end_date),
 
@@ -171,42 +174,46 @@ CREATE TABLE quarters
 CREATE TABLE holidays
 (
     begin_date date NOT NULL,
-    end_date date NOT NULL,
+    end_date   date NOT NULL,
 
     PRIMARY KEY (begin_date, end_date),
 
     CHECK ( begin_date < end_date )
 );
 
-CREATE TABLE salary_history(
-    worker_id int REFERENCES workers NOT NULL,
-    salary int NOT NULL,
-    change_time timestamp NOT NULL,
+CREATE TABLE salary_history
+(
+    worker_id   int REFERENCES workers NOT NULL,
+    salary      int                    NOT NULL,
+    change_time timestamp              NOT NULL,
 
     PRIMARY KEY (worker_id, change_time)
 );
 
-CREATE TABLE classes(
-    title text NOT NULL,
-    study_year int NOT NULL,
-    class_id serial PRIMARY KEY,
+CREATE TABLE classes
+(
+    title      text NOT NULL,
+    study_year int  NOT NULL,
+    class_id   serial PRIMARY KEY,
 
     CHECK (study_year > 0 AND study_year < 13)
 );
 
-CREATE TABLE class_history(
-    pupil_id int REFERENCES pupils NOT NULL,
-    class_id int REFERENCES  classes NOT NULL,
-    add_time timestamp NOT NULL,
+CREATE TABLE class_history
+(
+    pupil_id      int REFERENCES pupils  NOT NULL,
+    class_id      int REFERENCES classes NOT NULL,
+    add_time      timestamp              NOT NULL,
     deletion_time timestamp DEFAULT NULL,
 
     PRIMARY KEY (pupil_id, class_id, add_time)
 );
 
-CREATE TABLE class_teacher_history(
-    class_id int REFERENCES classes NOT NULL,
-    teacher_id int REFERENCES workers NOT NULL,
-    change_time timestamp NOT NULL,
+CREATE TABLE class_teacher_history
+(
+    class_id    int REFERENCES classes NOT NULL,
+    teacher_id  int REFERENCES workers NOT NULL,
+    change_time timestamp              NOT NULL,
     PRIMARY KEY (class_id, teacher_id, change_time)
 );
 
@@ -218,15 +225,17 @@ CREATE TABLE journal
     PRIMARY KEY (pupil_id, event_id)
 );
 
-CREATE TABLE groups_to_events(
+CREATE TABLE groups_to_events
+(
     "group" int REFERENCES groups NOT NULL,
-    event int REFERENCES events NOT NULL,
+    event   int REFERENCES events NOT NULL,
 
     PRIMARY KEY ("group", event)
 );
 
-CREATE TABLE groups_to_schedule(
-    "group" int REFERENCES groups NOT NULL,
+CREATE TABLE groups_to_schedule
+(
+    "group"           int REFERENCES groups           NOT NULL,
     event_in_schedule int REFERENCES schedule_history NOT NULL,
 
     PRIMARY KEY ("group", event_in_schedule)
