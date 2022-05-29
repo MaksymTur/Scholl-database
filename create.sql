@@ -107,10 +107,10 @@ CREATE TABLE posts
 
 CREATE TABLE workers_history
 (
-    worker_id int REFERENCES workers NOT NULL,
-    post_id   int REFERENCES posts   NOT NULL,
-    add_time timestamp              NOT NULL,
-    deletion_time   timestamp DEFAULT NULL,
+    worker_id     int REFERENCES workers NOT NULL,
+    post_id       int REFERENCES posts   NOT NULL,
+    add_time      timestamp              NOT NULL,
+    deletion_time timestamp DEFAULT NULL,
 
     PRIMARY KEY (worker_id, post_id, add_time),
 
@@ -234,7 +234,46 @@ CREATE TABLE groups_to_schedule
     PRIMARY KEY ("group", event_in_schedule)
 );
 
+-- functions
 
+CREATE FUNCTION has_post(worker int, post int, check_time timestamp DEFAULT now())
+    RETURNS bool AS
+$$
+begin
+    return (SELECT COUNT(*)
+            FROM workers_history
+            WHERE worker_id = worker
+              AND post_id = post
+              AND add_time <= check_time
+              AND (deletion_time IS NULL OR deletion_time > check_time)) = 1;
+end;
+$$ language plpgsql;
 
+CREATE FUNCTION add_post(worker int, post int)
+    RETURNS bool AS
+$$
+begin
+    if has_post(worker, post) then
+        return false;
+    end if;
+    INSERT INTO workers_history(worker_id, post_id, add_time)
+    VALUES (worker, post, now());
+    return true;
+end
+$$ language plpgsql;
+
+CREATE FUNCTION delete_post(worker int, post int)
+    RETURNS bool AS
+$$
+begin
+    if not has_post(worker, post) then
+        return false;
+    end if;
+    UPDATE workers_history
+    SET deletion_time = now()
+    WHERE deletion_time IS NULL;
+    return true;
+end
+$$ language plpgsql;
 
 
