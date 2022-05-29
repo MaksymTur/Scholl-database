@@ -97,7 +97,7 @@ values ('Director'),
        ('classroom teacher');
 --  select * from posts;
 
-insert into workers_history (worker_id, post_id, from_time, to_time)
+insert into workers_history (worker_id, post_id, add_time, deletion_time)
 values (1, 3, '2021-08-09 07:00:00', default),
        (2, 1, '2021-08-09 07:01:00', default),
        (3, 2, '2021-08-09 07:02:00', '2021-08-15 07:02:00'),

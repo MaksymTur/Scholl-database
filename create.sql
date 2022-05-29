@@ -109,12 +109,12 @@ CREATE TABLE workers_history
 (
     worker_id int REFERENCES workers NOT NULL,
     post_id   int REFERENCES posts   NOT NULL,
-    from_time timestamp              NOT NULL,
-    to_time   timestamp DEFAULT NULL,
+    add_time timestamp              NOT NULL,
+    deletion_time   timestamp DEFAULT NULL,
 
-    PRIMARY KEY (worker_id, post_id, from_time),
+    PRIMARY KEY (worker_id, post_id, add_time),
 
-    CHECK (from_time < to_time)
+    CHECK (add_time < deletion_time)
 );
 
 
