@@ -37,11 +37,11 @@ values (1, '08:00', '08:45'),
        (6, '13:05', '13:50');
 --  select * from bell_shedule_history;
 
-insert into groups (subject_id)
-values (1),
-       (2),
-       (2),
-       (2);
+insert into groups (title, subject_id)
+values ('A1 Math group', 1),
+       ('A1 English first group', 2),
+       ('A1 English second group', 2),
+       ('B1 English', 2);
 --  select * from groups;
 
 insert into excuses (pupil_id, reason, begin_bell, end_bell)

@@ -74,6 +74,7 @@ CREATE TABLE bell_schedule_history
 
 CREATE TABLE "groups"
 (
+    title text NOT NULL,
     subject_id integer REFERENCES subjects NOT NULL,
     group_id   serial PRIMARY KEY
 );
