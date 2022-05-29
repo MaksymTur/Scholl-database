@@ -112,10 +112,12 @@ CREATE TABLE posts(
 CREATE TABLE workers_history(
     worker_id int REFERENCES workers NOT NULL,
     post_id int REFERENCES posts NOT NULL,
-    added boolean NOT NULL,
-    change_time timestamp NOT NULL,
+    from_time timestamp NOT NULL,
+    to_time timestamp DEFAULT NULL,
 
-    PRIMARY KEY (worker_id, post_id, change_time)
+    PRIMARY KEY (worker_id, post_id, from_time),
+
+    CHECK (from_time < to_time)
 );
 
 
