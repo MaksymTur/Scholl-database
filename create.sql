@@ -17,13 +17,6 @@ CREATE TABLE rooms
     UNIQUE (title)
 );
 
-/*CREATE TABLE classes
-(
-    "name"     varchar(100) NOT NULL,
-    study_year numeric(2)   NOT NULL,
-    class_id   serial PRIMARY KEY
-);*/
-
 CREATE TABLE subjects
 (
     title      text NOT NULL,
