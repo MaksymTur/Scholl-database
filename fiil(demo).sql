@@ -44,8 +44,8 @@ values ('A1 Math group', 1),
        ('B1 English', 2);
 --  select * from groups;
 
-insert into excuses (pupil_id, reason, begin_bell, end_bell)
-values (1, 'illness', ('2015-05-27', 1), ('2015-05-27', 6));
+insert into excuses (pupil_id, reason, begin_date, begin_bell, end_date, end_bell)
+values (1, 'illness', '2015-05-27', 1, '2015-05-27', 6);
 --  select * from excuses;
 
 insert into groups_history (pupil_id, group_id)
@@ -115,10 +115,10 @@ values (2, 2, 1, 'Thursday', 'odd'),
        (2, 3, 2, 'Thursday', 'odd');
 --  select * from schedule_history;
 
-insert into events (room_id, teacher_id, theme_id, event_time)
-values (3, 2, 1, ('2015-05-27', 1)),
-       (2, 3, 3, ('2015-05-27', 2)),
-       (3, 1, 3, ('2015-05-27', 2));
+insert into events (room_id, teacher_id, theme_id, event_date, event_bell)
+values (3, 2, 1, '2015-05-27', 1),
+       (2, 3, 3, '2015-05-27', 2),
+       (3, 1, 3, '2015-05-27', 2);
 --  select * from events;
 
 insert into marks (pupil_id, event_id, mark)

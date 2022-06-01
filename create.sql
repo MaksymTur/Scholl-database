@@ -1,10 +1,5 @@
 CREATE TYPE week_day AS enum ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
 CREATE TYPE parity AS enum ('odd', 'even');
-CREATE TYPE bell_event AS
-(
-    "day" date,
-    bell  integer
-);
 
 CREATE TABLE rooms
 (
@@ -51,8 +46,10 @@ CREATE TABLE excuses
 (
     pupil_id   int REFERENCES pupils NOT NULL,
     reason     text,
-    begin_bell bell_event,
-    end_bell   bell_event
+    begin_date date                  NOT NULL,
+    begin_bell int                   NOT NULL,
+    end_date   date                  NOT NULL,
+    end_bell   int                   NOT NULL
 );
 
 CREATE TABLE bell_schedule_history
@@ -139,10 +136,11 @@ CREATE TABLE events
     room_id    integer REFERENCES rooms,
     teacher_id integer REFERENCES workers NOT NULL,
     theme_id   integer REFERENCES themes,
-    event_time bell_event                 NOT NULL,
+    event_date date                       NOT NULL,
+    event_bell int                        NOT NULL,
     event_id   serial PRIMARY KEY,
 
-    UNIQUE (teacher_id, event_time)
+    UNIQUE (teacher_id, event_date, event_bell)
 );
 
 CREATE TABLE marks
