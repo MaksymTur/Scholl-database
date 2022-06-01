@@ -121,7 +121,7 @@ CREATE TABLE schedule_history
     room_id     integer REFERENCES rooms,
     bell_number integer,
     "week_day"  week_day                   NOT NULL,
-    is_odd_week bool                       NOT NULL,
+    is_odd_week bool,
     change_time timestamp DEFAULT now()    NOT NULL,
 
     id          serial PRIMARY KEY,
@@ -142,11 +142,25 @@ CREATE TABLE events
     UNIQUE (teacher_id, event_date, event_bell)
 );
 
+CREATE TABLE mark_types
+(
+    type_name VARCHAR(10) NOT NULL,
+    type_id   integer
+);
+
+CREATE TABLE type_weights_history
+(
+    type_id     integer REFERENCES mark_types NOT NULL,
+    change_date date                          NOT NULL,
+    weight      NUMERIC(5, 2)
+);
+
 CREATE TABLE marks
 (
-    pupil_id integer REFERENCES pupils NOT NULL,
-    event_id integer REFERENCES events NOT NULL,
-    mark     integer                   NOT NULL,
+    pupil_id integer REFERENCES pupils     NOT NULL,
+    event_id integer REFERENCES events     NOT NULL,
+    mark     integer                       NOT NULL,
+    type_id  integer REFERENCES mark_types NOT NULL,
 
     PRIMARY KEY (pupil_id, event_id, mark)
 );
@@ -398,19 +412,24 @@ values (3, 2, 1, '2015-05-27', 1),
        (3, 1, 3, '2015-05-27', 2);
 --  select * from events;
 
-insert into marks (pupil_id, event_id, mark)
-values (2, 1, 10),
-       (2, 2, 2),
-       (3, 1, 4),
-       (3, 2, 9),
-       (4, 1, 5),
-       (4, 2, 8),
-       (5, 1, 7),
-       (5, 3, 10),
-       (6, 1, 9),
-       (6, 3, 6),
-       (7, 1, 10),
-       (7, 3, 5);
+insert into mark_types(type_name, type_id)
+values ('exam', 1),
+       ('report', 2),
+       ('activity', 3);
+
+insert into marks (pupil_id, event_id, mark, type_id)
+values (2, 1, 10, 1),
+       (2, 2, 2, 2),
+       (3, 1, 4, 3),
+       (3, 2, 9, 2),
+       (4, 1, 5, 1),
+       (4, 2, 8, 3),
+       (5, 1, 7, 2),
+       (5, 3, 10, 1),
+       (6, 1, 9, 1),
+       (6, 3, 6, 2),
+       (7, 1, 10, 3),
+       (7, 3, 5, 1);
 --    select * from marks;
 
 insert into holidays (begin_date, end_date)
