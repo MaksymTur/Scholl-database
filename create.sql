@@ -1,5 +1,4 @@
 CREATE TYPE week_day AS enum ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
-CREATE TYPE parity AS enum ('odd', 'even');
 
 CREATE TABLE rooms
 (
@@ -122,13 +121,13 @@ CREATE TABLE schedule_history
     room_id     integer REFERENCES rooms,
     bell_number integer,
     "week_day"  week_day                   NOT NULL,
-    week_pair   parity,
+    is_odd_week bool                       NOT NULL,
     change_time timestamp DEFAULT now()    NOT NULL,
 
     id          serial PRIMARY KEY,
 
 
-    UNIQUE (teacher_id, room_id, bell_number, "week_day", week_pair, change_time)
+    UNIQUE (teacher_id, room_id, bell_number, "week_day", is_odd_week, change_time)
 );
 
 CREATE TABLE events
