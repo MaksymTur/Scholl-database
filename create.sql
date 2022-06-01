@@ -19,11 +19,10 @@ CREATE TABLE subjects
 
 CREATE TABLE pupils
 (
-    date_of_birth date         NOT NULL,
-    first_name    varchar(100) NOT NULL,
-    second_name   varchar(100) NOT NULL,
+    date_of_birth date        NOT NULL,
+    first_name    varchar(20) NOT NULL,
+    second_name   varchar(20) NOT NULL,
     pupil_id      serial PRIMARY KEY
-
 );
 
 
@@ -48,12 +47,15 @@ CREATE TABLE excuses
     begin_date date                  NOT NULL,
     begin_bell int                   NOT NULL,
     end_date   date                  NOT NULL,
-    end_bell   int                   NOT NULL
+    end_bell   int                   NOT NULL,
+
+    CHECK (begin_date < end_date OR (begin_date == end_date && excuses.begin_bell < end_bell)),
+    CHECK (bell_begin_time(begin_date, begin_bell) >= study_start(pupil_id))
 );
 
 CREATE TABLE bell_schedule_history
 (
-    bell_number int,
+    bell_order  int,
     begin_time  time               NOT NULL,
     end_time    time               NOT NULL,
     change_time date DEFAULT now() NOT NULL,
@@ -144,8 +146,8 @@ CREATE TABLE events
 
 CREATE TABLE mark_types
 (
-    type_name VARCHAR(10) NOT NULL,
-    type_id   integer
+    type_name varchar(10) NOT NULL,
+    type_id   integer PRIMARY KEY
 );
 
 CREATE TABLE type_weights_history
@@ -162,7 +164,9 @@ CREATE TABLE marks
     mark     integer                       NOT NULL,
     type_id  integer REFERENCES mark_types NOT NULL,
 
-    PRIMARY KEY (pupil_id, event_id, mark)
+    PRIMARY KEY (pupil_id, event_id, mark),
+    CHECK (was_at_lecture(pupil_id, event_id)),
+    CHECK (mark >= 1 AND mark <= 12)
 );
 
 CREATE TABLE quarters
@@ -196,8 +200,8 @@ CREATE TABLE salary_history
 
 CREATE TABLE classes
 (
-    title      text NOT NULL,
-    study_year int  NOT NULL,
+    title      varchar(10) NOT NULL,
+    study_year int         NOT NULL,
     class_id   serial PRIMARY KEY,
 
     CHECK (study_year > 0 AND study_year < 13)
@@ -287,6 +291,58 @@ begin
 end
 $$ language plpgsql;
 
+
+
+CREATE FUNCTION study_start(pupil_id int)
+    RETURNS timestamp AS
+$$
+begin
+    SELECT add_time
+    FROM class_history
+    WHERE class_history.pupil_id = study_start.pupil_id
+    ORDER BY 1
+    LIMIT 1;
+end
+$$ language plpgsql;
+
+CREATE FUNCTION bell_begin_time(bell_date date, bell_order int)
+    RETURNS timestamp AS
+$$
+begin
+    SELECT begin_time
+    FROM bell_schedule_history
+    WHERE change_time < bell_date
+      AND bell_schedule_history.bell_order = bell_begin_time.bell_order
+    ORDER BY change_time DESC
+    LIMIT 1;
+end
+$$ language plpgsql;
+
+CREATE FUNCTION bell_end_time(bell_date date, bell_order int)
+    RETURNS timestamp AS
+$$
+begin
+    SELECT end_time
+    FROM bell_schedule_history
+    WHERE change_time < bell_date
+      AND bell_schedule_history.bell_order = bell_end_time.bell_order
+    ORDER BY change_time DESC
+    LIMIT 1;
+end
+$$ language plpgsql;
+
+CREATE FUNCTION was_at_lecture(pupil_id int, event_id int)
+    RETURNS boolean AS
+$$
+begin
+    return EXISTS((SELECT journal.pupil_id
+                   FROM journal
+                   WHERE journal.pupil_id = was_at_lecture.pupil_id
+                     AND journal.event_id = was_at_lecture.event_id));
+end
+$$ language plpgsql;
+
+
 --data examples
 
 insert into rooms (title, room_type, seats)
@@ -319,7 +375,7 @@ values ('Addition', 1, 20, 1),
        ('Words', 2, 30, 2);
 -- select * from themes;
 
-insert into bell_schedule_history (bell_number, begin_time, end_time)
+insert into bell_schedule_history (bell_order, begin_time, end_time)
 values (1, '08:00', '08:45'),
        (2, '09:00', '09:45'),
        (3, '09:55', '10:40'),
