@@ -1,4 +1,9 @@
+--type block
+
 CREATE TYPE week_day AS enum ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
+
+--type block end
+--table block
 
 CREATE TABLE rooms
 (
@@ -7,7 +12,6 @@ CREATE TABLE rooms
     seats     integer NOT NULL,
     room_id   serial PRIMARY KEY,
 
-    CHECK ( seats >= 0 ),
     UNIQUE (title)
 );
 
@@ -35,7 +39,6 @@ CREATE TABLE themes
 
     theme_id       serial PRIMARY KEY,
 
-    CHECK ( lessons_length > 0 ),
     UNIQUE (title, subject_id),
     UNIQUE (subject_id, theme_order)
 );
@@ -45,12 +48,9 @@ CREATE TABLE excuses
     pupil_id   int REFERENCES pupils NOT NULL,
     reason     text,
     begin_date date                  NOT NULL,
-    begin_bell int                   NOT NULL,
+    begin_bell int,
     end_date   date                  NOT NULL,
-    end_bell   int                   NOT NULL,
-
-    CHECK (begin_date < end_date OR (begin_date == end_date && excuses.begin_bell < end_bell)),
-    CHECK (bell_begin_time(begin_date, begin_bell) >= study_start(pupil_id))
+    end_bell   int
 );
 
 CREATE TABLE bell_schedule_history
@@ -58,9 +58,7 @@ CREATE TABLE bell_schedule_history
     bell_order  int,
     begin_time  time               NOT NULL,
     end_time    time               NOT NULL,
-    change_time date DEFAULT now() NOT NULL,
-
-    CHECK ( begin_time < end_time )
+    change_time date DEFAULT now() NOT NULL
 );
 
 CREATE TABLE "groups"
@@ -77,9 +75,7 @@ CREATE TABLE groups_history
     add_time      timestamp DEFAULT now() NOT NULL,
     deletion_time timestamp DEFAULT NULL,
 
-    PRIMARY KEY (pupil_id, group_id, add_time),
-
-    CHECK ( add_time < deletion_time )
+    PRIMARY KEY (pupil_id, group_id, add_time)
 );
 
 CREATE TABLE pupil_groups
@@ -110,9 +106,7 @@ CREATE TABLE workers_history
     add_time      timestamp              NOT NULL,
     deletion_time timestamp DEFAULT NULL,
 
-    PRIMARY KEY (worker_id, post_id, add_time),
-
-    CHECK (add_time < deletion_time)
+    PRIMARY KEY (worker_id, post_id, add_time)
 );
 
 
@@ -125,9 +119,7 @@ CREATE TABLE schedule_history
     "week_day"  week_day                   NOT NULL,
     is_odd_week bool,
     change_time timestamp DEFAULT now()    NOT NULL,
-
     id          serial PRIMARY KEY,
-
 
     UNIQUE (teacher_id, room_id, bell_number, "week_day", is_odd_week, change_time)
 );
@@ -164,9 +156,7 @@ CREATE TABLE marks
     mark     integer                       NOT NULL,
     type_id  integer REFERENCES mark_types NOT NULL,
 
-    PRIMARY KEY (pupil_id, event_id, mark),
-    CHECK (was_at_lecture(pupil_id, event_id)),
-    CHECK (mark >= 1 AND mark <= 12)
+    PRIMARY KEY (pupil_id, event_id, mark)
 );
 
 CREATE TABLE quarters
@@ -174,9 +164,7 @@ CREATE TABLE quarters
     begin_date date NOT NULL,
     end_date   date NOT NULL,
 
-    PRIMARY KEY (begin_date, end_date),
-
-    CHECK ( begin_date < end_date )
+    PRIMARY KEY (begin_date, end_date)
 );
 
 CREATE TABLE holidays
@@ -184,9 +172,7 @@ CREATE TABLE holidays
     begin_date date NOT NULL,
     end_date   date NOT NULL,
 
-    PRIMARY KEY (begin_date, end_date),
-
-    CHECK ( begin_date < end_date )
+    PRIMARY KEY (begin_date, end_date)
 );
 
 CREATE TABLE salary_history
@@ -202,9 +188,7 @@ CREATE TABLE classes
 (
     title      varchar(10) NOT NULL,
     study_year int         NOT NULL,
-    class_id   serial PRIMARY KEY,
-
-    CHECK (study_year > 0 AND study_year < 13)
+    class_id   serial PRIMARY KEY
 );
 
 CREATE TABLE class_history
@@ -222,6 +206,7 @@ CREATE TABLE class_teacher_history
     class_id    int REFERENCES classes NOT NULL,
     teacher_id  int REFERENCES workers NOT NULL,
     change_time timestamp              NOT NULL,
+
     PRIMARY KEY (class_id, teacher_id, change_time)
 );
 
@@ -249,7 +234,8 @@ CREATE TABLE groups_to_schedule
     PRIMARY KEY ("group", event_in_schedule)
 );
 
--- functions
+--table block end
+-- functions block
 
 CREATE FUNCTION has_post(worker int, post int, check_time timestamp DEFAULT now())
     RETURNS bool AS
@@ -291,8 +277,6 @@ begin
 end
 $$ language plpgsql;
 
-
-
 CREATE FUNCTION study_start(pupil_id int)
     RETURNS timestamp AS
 $$
@@ -305,10 +289,13 @@ begin
 end
 $$ language plpgsql;
 
-CREATE FUNCTION bell_begin_time(bell_date date, bell_order int)
+CREATE OR REPLACE FUNCTION bell_begin_time(bell_date date, bell_order int)
     RETURNS timestamp AS
 $$
 begin
+    if (bell_order IS NULL) then
+        return bell_date;
+    end if;
     SELECT begin_time
     FROM bell_schedule_history
     WHERE change_time < bell_date
@@ -342,8 +329,129 @@ begin
 end
 $$ language plpgsql;
 
+--functions block end
+--checkers and triggers block
 
---data examples
+ALTER TABLE rooms
+    ADD CONSTRAINT rooms_seats_check
+        CHECK (
+            seats >= 0
+            );
+
+ALTER TABLE themes
+    ADD CONSTRAINT themes_length_check
+        CHECK (
+            lessons_length > 0
+            );
+
+ALTER TABLE excuses
+    ADD CONSTRAINT excuses_check
+        CHECK (
+                    begin_date < end_date OR (begin_date = end_date AND excuses.begin_bell < end_bell)
+            );
+
+ALTER TABLE excuses
+    ADD CONSTRAINT excuses_length_check
+        CHECK (
+                    begin_date < end_date OR (begin_date = end_date AND excuses.begin_bell < end_bell)
+            );
+
+ALTER TABLE excuses
+    ADD CONSTRAINT excuses_begin_bell_exists_check
+        CHECK (
+            bell_begin_time(begin_date, begin_bell) IS NOT NULL
+            );
+
+ALTER TABLE excuses
+    ADD CONSTRAINT excuses_begin_after_study_begin_check
+        CHECK (
+            bell_begin_time(begin_date, begin_bell) >= study_start(pupil_id)
+            );
+
+ALTER TABLE bell_schedule_history
+    ADD CONSTRAINT bell_schedule_history_normal_length_check
+        CHECK (
+            begin_time < end_time
+            );
+
+ALTER TABLE groups_history
+    ADD CONSTRAINT groups_history_add_before_deletion_check
+        CHECK (
+            add_time < deletion_time
+            );
+
+ALTER TABLE workers_history
+    ADD CONSTRAINT workers_history_add_before_deletion_check
+        CHECK (
+            add_time < deletion_time
+            );
+
+ALTER TABLE events
+    ADD CONSTRAINT events_bell_exists_check
+        CHECK (
+            bell_begin_time(event_date, event_bell) IS NOT NULL
+            );
+
+CREATE OR REPLACE FUNCTION events_insert_trigger()
+    RETURNS TRIGGER AS
+$$
+begin
+    if (!EXISTS(SELECT *
+                FROM events
+                WHERE events.room_id = NEW.room_id
+                  AND events.event_date = NEW.event_date
+                  AND events.event_bell = NEW.event_bell) AND
+        !EXISTS(SELECT *
+                FROM events
+                WHERE events.teacher_id = NEW.teacher_id
+                  AND events.event_date = NEW.event_date
+                  AND events.event_bell = NEW.event_bell)) then
+        return NEW;
+    else
+        return NULL;
+    end if;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER events_insert_trigger
+    BEFORE INSERT
+    ON events
+    FOR EACH ROW
+EXECUTE PROCEDURE events_insert_trigger();
+
+ALTER TABLE marks
+    ADD CONSTRAINT marks_pupil_was_at_lecture_check
+        CHECK (
+            was_at_lecture(pupil_id, event_id)
+            );
+
+ALTER TABLE marks
+    ADD CONSTRAINT marks_in_boundaries
+        CHECK (
+            mark >= 1 AND mark <= 12
+            );
+
+ALTER TABLE quarters
+    ADD CONSTRAINT quarters_begin_before_end
+        CHECK (
+            begin_date < end_date
+            );
+
+ALTER TABLE holidays
+    ADD CONSTRAINT holidays_begin_before_end
+        CHECK (
+            begin_date < end_date
+            );
+
+ALTER TABLE classes
+    ADD CONSTRAINT classes_normal_study_year_check
+        CHECK (
+            study_year > 0 AND study_year < 13
+            );
+
+--checkers and triggers block end
+--data examples block
 
 insert into rooms (title, room_type, seats)
 values ('101a', 'gym', 40),
@@ -391,9 +499,12 @@ values ('A1 Math group', 1),
        ('B1 English', 2);
 --  select * from groups;
 
+--data bug!!!
+/*
 insert into excuses (pupil_id, reason, begin_date, begin_bell, end_date, end_bell)
 values (1, 'illness', '2015-05-27', 1, '2015-05-27', 6);
 --  select * from excuses;
+*/
 
 insert into groups_history (pupil_id, group_id)
 values (1, 1),
@@ -462,17 +573,22 @@ values (2, 2, 1, 'Thursday', True),
        (2, 3, 2, 'Thursday', True);
 --  select * from schedule_history;
 
+--data bug!!!
+/*
 insert into events (room_id, teacher_id, theme_id, event_date, event_bell)
 values (3, 2, 1, '2015-05-27', 1),
        (2, 3, 3, '2015-05-27', 2),
        (3, 1, 3, '2015-05-27', 2);
 --  select * from events;
+ */
 
 insert into mark_types(type_name, type_id)
 values ('exam', 1),
        ('report', 2),
        ('activity', 3);
 
+--data bug(violates check constraint "marks_pupil_was_at_lecture_check")
+/*
 insert into marks (pupil_id, event_id, mark, type_id)
 values (2, 1, 10, 1),
        (2, 2, 2, 2),
@@ -487,6 +603,7 @@ values (2, 1, 10, 1),
        (7, 1, 10, 3),
        (7, 3, 5, 1);
 --    select * from marks;
+ */
 
 insert into holidays (begin_date, end_date)
 values ('2021-10-31', '2021-11-07'),
@@ -529,6 +646,8 @@ values (1, 2, '2021-08-31 09:00:00'),
        (2, 3, '2021-08-31 09:00:00');
 -- select * from class_teacher_history;
 
+--data bug(violates foreign key constraint "journal_event_id_fkey")
+/*
 insert into journal (pupil_id, event_id)
 values (2, 1),
        (2, 2),
@@ -543,12 +662,16 @@ values (2, 1),
        (7, 1),
        (7, 3);
 -- select * from journal;
+*/
 
+--data bug
+/*
 insert into groups_to_events ("group", event)
 values (1, 1),
        (2, 2),
        (3, 3);
 -- select * from groups_to_events;
+ */
 
 insert into groups_to_schedule ("group", event_in_schedule)
 values (1, 1),
@@ -557,4 +680,5 @@ values (1, 1),
        (4, 3);
 --  select * from groups_to_schedule;
 
+--data examples block end
 
