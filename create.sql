@@ -110,6 +110,23 @@ CREATE TABLE workers_history
 );
 
 
+-- CREATE FUNCTION get_lesson_bounds(lesson_date date, lesson_bell int)
+--     RETURNS record AS
+-- $$
+-- declare
+--     res record;
+-- begin
+--     SELECT begin_time, end_time
+--     FROM bell_schedule_history
+--     WHERE bell_order = lesson_bell
+--       AND change_time = (SELECT MAX(change_time)
+--                          FROM bell_schedule_history
+--                          WHERE bell_order = lesson_bell
+--                            AND change_time <= lesson_date)
+--     INTO res;
+--     return res;
+-- end;
+-- $$ language plpgsql;
 
 CREATE TABLE schedule_history
 (
