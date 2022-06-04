@@ -78,11 +78,11 @@ CREATE TABLE groups_history
     PRIMARY KEY (pupil_id, group_id, add_time)
 );
 
-CREATE TABLE workers
+CREATE TABLE employees
 (
     first_name  text,
     second_name text,
-    worker_id   serial PRIMARY KEY
+    employee_id   serial PRIMARY KEY
 );
 
 CREATE TABLE posts
@@ -92,14 +92,14 @@ CREATE TABLE posts
 );
 
 
-CREATE TABLE workers_history
+CREATE TABLE employees_history
 (
-    worker_id     int REFERENCES workers NOT NULL,
+    employee_id     int REFERENCES employees NOT NULL,
     post_id       int REFERENCES posts   NOT NULL,
     add_time      timestamp              NOT NULL,
     deletion_time timestamp DEFAULT NULL,
 
-    PRIMARY KEY (worker_id, post_id, add_time)
+    PRIMARY KEY (employee_id, post_id, add_time)
 );
 
 
@@ -123,7 +123,7 @@ CREATE TABLE workers_history
 
 CREATE TABLE schedule_history
 (
-    teacher_id  integer REFERENCES workers NOT NULL,
+    teacher_id  integer REFERENCES employees NOT NULL,
     room_id     integer REFERENCES rooms,
     bell_number integer,
     "week_day"  week_day                   NOT NULL,
@@ -137,7 +137,7 @@ CREATE TABLE schedule_history
 CREATE TABLE events
 (
     room_id    integer REFERENCES rooms,
-    teacher_id integer REFERENCES workers NOT NULL,
+    teacher_id integer REFERENCES employees NOT NULL,
     theme_id   integer REFERENCES themes,
     event_date date                       NOT NULL,
     event_bell int                        NOT NULL,
@@ -187,11 +187,11 @@ CREATE TABLE holidays
 
 CREATE TABLE salary_history
 (
-    worker_id   int REFERENCES workers NOT NULL,
+    employee_id   int REFERENCES employees NOT NULL,
     salary      int                    NOT NULL,
     change_time timestamp              NOT NULL,
 
-    PRIMARY KEY (worker_id, change_time)
+    PRIMARY KEY (employee_id, change_time)
 );
 
 CREATE TABLE classes
@@ -214,7 +214,7 @@ CREATE TABLE class_history
 CREATE TABLE class_teacher_history
 (
     class_id    int REFERENCES classes NOT NULL,
-    teacher_id  int REFERENCES workers NOT NULL,
+    teacher_id  int REFERENCES employees NOT NULL,
     change_time timestamp              NOT NULL,
 
     PRIMARY KEY (class_id, teacher_id, change_time)
@@ -247,40 +247,40 @@ CREATE TABLE groups_to_schedule
 --table block end
 -- functions block
 
-CREATE FUNCTION has_post(worker int, post int, check_time timestamp DEFAULT now())
+CREATE FUNCTION has_post(employee int, post int, check_time timestamp DEFAULT now())
     RETURNS bool AS
 $$
 begin
     return (SELECT COUNT(*)
-            FROM workers_history
-            WHERE worker_id = worker
+            FROM employees_history
+            WHERE employee_id = employee
               AND post_id = post
               AND add_time <= check_time
               AND (deletion_time IS NULL OR deletion_time > check_time)) = 1;
 end;
 $$ language plpgsql;
 
-CREATE FUNCTION add_post(worker int, post int)
+CREATE FUNCTION add_post(employee int, post int)
     RETURNS bool AS
 $$
 begin
-    if has_post(worker, post) then
+    if has_post(employee, post) then
         return false;
     end if;
-    INSERT INTO workers_history(worker_id, post_id, add_time)
-    VALUES (worker, post, now());
+    INSERT INTO employees_history(employee_id, post_id, add_time)
+    VALUES (employee, post, now());
     return true;
 end
 $$ language plpgsql;
 
-CREATE FUNCTION delete_post(worker int, post int)
+CREATE FUNCTION delete_post(employee int, post int)
     RETURNS bool AS
 $$
 begin
-    if not has_post(worker, post) then
+    if not has_post(employee, post) then
         return false;
     end if;
-    UPDATE workers_history
+    UPDATE employees_history
     SET deletion_time = now()
     WHERE deletion_time IS NULL;
     return true;
@@ -390,8 +390,8 @@ ALTER TABLE groups_history
             add_time < deletion_time
             );
 
-ALTER TABLE workers_history
-    ADD CONSTRAINT workers_history_add_before_deletion_check
+ALTER TABLE employees_history
+    ADD CONSTRAINT employees_history_add_before_deletion_check
         CHECK (
             add_time < deletion_time
             );
@@ -534,11 +534,11 @@ values (1, 1),
        (8, 4);
 --  select * from groups_history;
 
-insert into workers (first_name, second_name)
+insert into employees (first_name, second_name)
 values ('Maksym', 'Tur'),
        ('Andrii', 'Kovryhin'),
        ('Aliaksandr', 'Skvarniuk');
---  select * from workers;
+--  select * from employees;
 
 insert into posts (title)
 values ('Director'),
@@ -547,7 +547,7 @@ values ('Director'),
        ('classroom teacher');
 --  select * from posts;
 
-insert into workers_history (worker_id, post_id, add_time, deletion_time)
+insert into employees_history (employee_id, post_id, add_time, deletion_time)
 values (1, 3, '2021-08-09 07:00:00', default),
        (2, 1, '2021-08-09 07:01:00', default),
        (3, 2, '2021-08-09 07:02:00', '2021-08-15 07:02:00'),
@@ -555,7 +555,7 @@ values (1, 3, '2021-08-09 07:00:00', default),
        (3, 2, '2021-08-22 07:02:00', default),
        (2, 4, '2021-08-31 15:00:00', default),
        (3, 4, '2021-08-31 15:00:00', default);
---  select * from workers_history;
+--  select * from employees_history;
 
 insert into schedule_history (teacher_id, room_id, bell_number, week_day, is_odd_week)
 values (2, 2, 1, 'Thursday', True),
@@ -611,7 +611,7 @@ values ('2021-09-01', '2021-10-30'),
        ('2022-04-04', '2022-05-31');
 --  select * from quarters;
 
-insert into salary_history (worker_id, salary, change_time)
+insert into salary_history (employee_id, salary, change_time)
 values (1, 35, '2021-08-31 12:00:00'),
        (2, 25, '2021-08-31 12:00:00'),
        (3, 20, '2021-08-31 12:00:00');
