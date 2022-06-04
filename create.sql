@@ -78,13 +78,6 @@ CREATE TABLE groups_history
     PRIMARY KEY (pupil_id, group_id, add_time)
 );
 
-CREATE TABLE pupil_groups
-(
-    pupil_id int REFERENCES pupils   NOT NULL,
-    group_id int REFERENCES "groups" NOT NULL,
-    id       serial PRIMARY KEY
-);
-
 CREATE TABLE workers
 (
     first_name  text,
@@ -540,24 +533,6 @@ values (1, 1),
        (7, 3),
        (8, 4);
 --  select * from groups_history;
-
-insert into pupil_groups (pupil_id, group_id)
-values (1, 1),
-       (1, 2),
-       (2, 1),
-       (2, 2),
-       (3, 1),
-       (3, 2),
-       (4, 1),
-       (4, 2),
-       (5, 1),
-       (5, 3),
-       (6, 1),
-       (6, 3),
-       (7, 1),
-       (7, 3),
-       (8, 4);
---  select * from pupil_groups;
 
 insert into workers (first_name, second_name)
 values ('Maksym', 'Tur'),
