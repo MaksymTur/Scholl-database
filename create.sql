@@ -7,9 +7,9 @@ CREATE TYPE week_day AS enum ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Fri
 
 CREATE TABLE rooms
 (
-    title     varchar(20)    NOT NULL,
-    room_type varchar(20)    NOT NULL,
-    seats     integer NOT NULL,
+    title     varchar(20) NOT NULL,
+    room_type varchar(20) NOT NULL,
+    seats     integer     NOT NULL,
     room_id   serial PRIMARY KEY,
 
     UNIQUE (title)
@@ -32,7 +32,7 @@ CREATE TABLE pupils
 
 CREATE TABLE themes
 (
-    title          varchar(20)                    NOT NULL,
+    title          varchar(20)             NOT NULL,
     subject_id     int REFERENCES subjects NOT NULL,
     lessons_length integer                 NOT NULL,
     theme_order    integer                 NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE bell_schedule_history
 
 CREATE TABLE "groups"
 (
-    title      varchar(20)                        NOT NULL,
+    title      varchar(20)                 NOT NULL,
     subject_id integer REFERENCES subjects NOT NULL,
     group_id   serial PRIMARY KEY
 );
@@ -125,10 +125,10 @@ CREATE TABLE schedule_history
 (
     teacher_id  integer REFERENCES employees NOT NULL,
     room_id     integer REFERENCES rooms,
-    bell_order integer,
+    bell_order  integer,
     "week_day"  week_day                     NOT NULL,
     is_odd_week bool,
-    change_date date DEFAULT now()      NOT NULL,
+    change_date date DEFAULT now()           NOT NULL,
     id          serial PRIMARY KEY,
 
     UNIQUE (teacher_id, room_id, bell_order, "week_day", is_odd_week, change_date)
@@ -143,7 +143,8 @@ CREATE TABLE events
     event_bell int                          NOT NULL,
     event_id   serial PRIMARY KEY,
 
-    UNIQUE (teacher_id, event_date, event_bell)
+    UNIQUE (teacher_id, event_date, event_bell),
+    UNIQUE (room_id, event_date, event_bell)
 );
 
 CREATE TABLE mark_types
@@ -380,7 +381,7 @@ CREATE FUNCTION get_lessons(at_date date)
             (
                 bell_order int,
                 begin_time timestamp,
-                end_time timestamp
+                end_time   timestamp
             )
 AS
 $$
@@ -446,12 +447,12 @@ $$
 declare
     bell_order int;
     begin_time timestamp;
-    end_time timestamp;
+    end_time   timestamp;
 begin
     for bell_order, begin_time, end_time in (SELECT get_lessons(NEW.change_time::date))
         loop
             if (NOT (NEW.begin_time > end_time OR begin_time > NEW.end_time)) then
-                NEW := NULL;
+                return NULL;
             end if;
         end loop;
     return NEW;
@@ -483,39 +484,37 @@ ALTER TABLE schedule_history
             bell_begin_time(change_date, bell_order) IS NOT NULL
             );
 
+CREATE OR REPLACE FUNCTION schedule_history_insert_trigger()
+    RETURNS TRIGGER AS
+$$
+declare
+    i record;
+begin
+    for i in (SELECT * FROM schedule_history)
+        loop
+            if ((NEW.bell_order == i.bell_order
+                AND NEW.week_day == i.week_day
+                AND (NEW.is_odd_week == i.is_odd_week OR NEW.is_odd_week IS NULL OR i.is_odd_week IS NULL))
+                AND (NEW.room_id == i.room_id OR NEW.teacher_id == i.teacher_id)) then
+                    return NULL;
+            end if;
+        end loop;
+    return NEW;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER schedule_history_teacher_and_room_non_intersect_trigger
+    BEFORE INSERT
+    ON schedule_history
+    FOR EACH ROW
+EXECUTE PROCEDURE events_insert_trigger();
+
 ALTER TABLE events
     ADD CONSTRAINT events_bell_exists_check
         CHECK (
             bell_begin_time(event_date, event_bell) IS NOT NULL
             );
-
-CREATE OR REPLACE FUNCTION events_insert_trigger()
-    RETURNS TRIGGER AS
-$$
-begin
-    if (NOT EXISTS(SELECT *
-                   FROM events
-                   WHERE events.room_id = NEW.room_id
-                     AND events.event_date = NEW.event_date
-                     AND events.event_bell = NEW.event_bell) AND
-        NOT EXISTS(SELECT *
-                   FROM events
-                   WHERE events.teacher_id = NEW.teacher_id
-                     AND events.event_date = NEW.event_date
-                     AND events.event_bell = NEW.event_bell)) then
-        return NEW;
-    else
-        return NULL;
-    end if;
-end;
-$$
-    LANGUAGE PLPGSQL;
-
-CREATE TRIGGER events_insert_trigger
-    BEFORE INSERT
-    ON events
-    FOR EACH ROW
-EXECUTE PROCEDURE events_insert_trigger();
 
 ALTER TABLE marks
     ADD CONSTRAINT marks_pupil_was_at_lecture_check
@@ -538,7 +537,7 @@ begin
     for i in (SELECT * FROM quarters)
         loop
             if (NOT (NEW.begin_date > i.end_date OR i.begin_date > NEW.end_date)) then
-                NEW := NULL;
+                return NULL;
             end if;
         end loop;
     return NEW;
@@ -573,7 +572,7 @@ begin
     for i in (SELECT * FROM holidays)
         loop
             if (NOT (NEW.begin_date > i.end_date OR i.begin_date > NEW.end_date)) then
-                NEW := NULL;
+                return NULL;
             end if;
         end loop;
     return NEW;
@@ -612,6 +611,10 @@ ALTER TABLE class_teacher_history
             );
 
 --checkers and triggers block end
+--indexes block
+
+
+--indexes block end
 --data examples block
 
 insert into rooms (title, room_type, seats)
