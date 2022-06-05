@@ -10,15 +10,18 @@ CREATE TABLE rooms
     title     varchar(20) NOT NULL,
     room_type varchar(20) NOT NULL,
     seats     integer     NOT NULL,
-    room_id   serial PRIMARY KEY,
+    room_id   serial,
 
-    UNIQUE (title)
+    UNIQUE (title),
+    PRIMARY KEY (room_id)
 );
 
 CREATE TABLE subjects
 (
     title      varchar(20) NOT NULL,
-    subject_id serial PRIMARY KEY
+    subject_id serial,
+
+    PRIMARY KEY (subject_id)
 );
 
 CREATE TABLE pupils
@@ -26,7 +29,9 @@ CREATE TABLE pupils
     date_of_birth date        NOT NULL,
     first_name    varchar(20) NOT NULL,
     second_name   varchar(20) NOT NULL,
-    pupil_id      serial PRIMARY KEY
+    pupil_id      serial,
+
+    PRIMARY KEY (pupil_id)
 );
 
 
@@ -37,10 +42,11 @@ CREATE TABLE themes
     lessons_length integer                 NOT NULL,
     theme_order    integer                 NOT NULL,
 
-    theme_id       serial PRIMARY KEY,
+    theme_id       serial,
 
     UNIQUE (title, subject_id),
-    UNIQUE (subject_id, theme_order)
+    UNIQUE (subject_id, theme_order),
+    PRIMARY KEY (theme_id)
 );
 
 CREATE TABLE excuses
@@ -50,7 +56,10 @@ CREATE TABLE excuses
     begin_date date                  NOT NULL,
     begin_bell int,
     end_date   date                  NOT NULL,
-    end_bell   int
+    end_bell   int,
+    excuse_id  serial,
+
+    PRIMARY KEY (excuse_id)
 );
 
 CREATE TABLE bell_schedule_history
@@ -58,14 +67,19 @@ CREATE TABLE bell_schedule_history
     bell_order  int,
     begin_time  time               NOT NULL,
     end_time    time               NOT NULL,
-    change_time date DEFAULT now() NOT NULL
+    change_time date DEFAULT now() NOT NULL,
+    change_id   serial,
+
+    PRIMARY KEY (change_id)
 );
 
 CREATE TABLE "groups"
 (
     title      varchar(40)                 NOT NULL,
     subject_id integer REFERENCES subjects NOT NULL,
-    group_id   serial PRIMARY KEY
+    group_id   serial PRIMARY KEY,
+
+    PRIMARY KEY (group_id)
 );
 
 CREATE TABLE groups_history
@@ -82,13 +96,17 @@ CREATE TABLE employees
 (
     first_name  varchar(20),
     second_name varchar(20),
-    employee_id serial PRIMARY KEY
+    employee_id serial,
+
+    PRIMARY KEY (employee_id)
 );
 
 CREATE TABLE posts
 (
     title   varchar(20),
-    post_id serial PRIMARY KEY
+    post_id serial,
+
+    PRIMARY KEY (post_id)
 );
 
 
@@ -123,16 +141,17 @@ CREATE TABLE employees_history
 
 CREATE TABLE schedule_history
 (
-    teacher_id  integer REFERENCES employees NOT NULL,
-    room_id     integer REFERENCES rooms,
-    subject_id  integer REFERENCES subjects,
-    bell_order  integer,
-    "week_day"  week_day                     NOT NULL,
-    is_odd_week bool,
-    change_date date DEFAULT now()           NOT NULL,
-    id          serial PRIMARY KEY,
+    teacher_id          integer REFERENCES employees NOT NULL,
+    room_id             integer REFERENCES rooms,
+    subject_id          integer REFERENCES subjects,
+    bell_order          integer,
+    "week_day"          week_day                     NOT NULL,
+    is_odd_week         bool,
+    change_date         date DEFAULT now()           NOT NULL,
+    schedule_history_id serial,
 
-    UNIQUE (teacher_id, room_id, bell_order, "week_day", is_odd_week, change_date)
+    UNIQUE (teacher_id, room_id, bell_order, "week_day", is_odd_week, change_date),
+    PRIMARY KEY (schedule_history_id)
 );
 
 CREATE TABLE events
@@ -142,23 +161,28 @@ CREATE TABLE events
     theme_id   integer REFERENCES themes,
     event_date date DEFAULT now()           NOT NULL,
     event_bell int                          NOT NULL,
-    event_id   serial PRIMARY KEY,
+    event_id   serial,
 
     UNIQUE (teacher_id, event_date, event_bell),
-    UNIQUE (room_id, event_date, event_bell)
+    UNIQUE (room_id, event_date, event_bell),
+    PRIMARY KEY (event_id)
 );
 
 CREATE TABLE mark_types
 (
     type_name varchar(10) NOT NULL,
-    type_id   integer PRIMARY KEY
+    type_id   integer,
+
+    PRIMARY KEY (type_id)
 );
 
 CREATE TABLE type_weights_history
 (
     type_id     integer REFERENCES mark_types NOT NULL,
     change_date date                          NOT NULL,
-    weight      NUMERIC(5, 2)
+    weight      numeric(5, 2),
+
+    PRIMARY KEY (type_id, change_date)
 );
 
 CREATE TABLE marks
@@ -167,24 +191,27 @@ CREATE TABLE marks
     event_id integer REFERENCES events     NOT NULL,
     mark     integer                       NOT NULL,
     type_id  integer REFERENCES mark_types NOT NULL,
+    mark_id  serial,
 
-    PRIMARY KEY (pupil_id, event_id, mark)
+    PRIMARY KEY (mark_id)
 );
 
 CREATE TABLE quarters
 (
     begin_date date NOT NULL,
     end_date   date NOT NULL,
+    quarter_id serial,
 
-    PRIMARY KEY (begin_date, end_date)
+    PRIMARY KEY (quarter_id)
 );
 
 CREATE TABLE holidays
 (
-    begin_date date NOT NULL,
-    end_date   date NOT NULL,
+    begin_date  date NOT NULL,
+    end_date    date NOT NULL,
+    holidays_id serial,
 
-    PRIMARY KEY (begin_date, end_date)
+    PRIMARY KEY (holidays_id)
 );
 
 CREATE TABLE salary_history
@@ -200,7 +227,9 @@ CREATE TABLE classes
 (
     title      varchar(10) NOT NULL,
     study_year int         NOT NULL,
-    class_id   serial PRIMARY KEY
+    class_id   serial,
+
+    PRIMARY KEY(class_id)
 );
 
 CREATE TABLE class_history
@@ -446,13 +475,13 @@ begin
                    AND change_date <= at_date
                    AND week_day = at_date::week_day
                    AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
-                     AND change_date = (SELECT MAX(change_date)
-                                        FROM schedule_history inner_h
-                                        WHERE change_date <= at_date
-                                          AND week_day = at_date::week_day
-                                          AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
-                                          AND inner_h.teacher_id = outer_h.teacher_id
-                                          AND inner_h.bell_order = outer_h.bell_order);
+                   AND change_date = (SELECT MAX(change_date)
+                                      FROM schedule_history inner_h
+                                      WHERE change_date <= at_date
+                                        AND week_day = at_date::week_day
+                                        AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
+                                        AND inner_h.teacher_id = outer_h.teacher_id
+                                        AND inner_h.bell_order = outer_h.bell_order);
 end;
 $$ language plpgsql;
 
