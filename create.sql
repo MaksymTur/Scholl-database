@@ -139,7 +139,7 @@ CREATE TABLE events
     room_id    integer REFERENCES rooms,
     teacher_id integer REFERENCES employees NOT NULL,
     theme_id   integer REFERENCES themes,
-    event_date date                         NOT NULL,
+    event_date date DEFAULT now()           NOT NULL,
     event_bell int                          NOT NULL,
     event_id   serial PRIMARY KEY,
 
@@ -317,12 +317,12 @@ begin
     if (bell_order IS NULL) then
         return bell_date;
     end if;
-    SELECT begin_time
-    FROM bell_schedule_history
-    WHERE change_time < bell_date
-      AND bell_schedule_history.bell_order = bell_begin_time.bell_order
-    ORDER BY change_time DESC
-    LIMIT 1;
+    return bell_date + (SELECT begin_time
+                        FROM bell_schedule_history
+                        WHERE change_time < bell_date
+                          AND bell_schedule_history.bell_order = bell_begin_time.bell_order
+                        ORDER BY change_time DESC
+                        LIMIT 1);
 end
 $$ language plpgsql;
 
@@ -330,12 +330,12 @@ CREATE FUNCTION bell_end_time(bell_date date, bell_order int)
     RETURNS timestamp AS
 $$
 begin
-    SELECT end_time
-    FROM bell_schedule_history
-    WHERE change_time < bell_date
-      AND bell_schedule_history.bell_order = bell_end_time.bell_order
-    ORDER BY change_time DESC
-    LIMIT 1;
+    return bell_date + (SELECT end_time
+                        FROM bell_schedule_history
+                        WHERE change_time < bell_date
+                          AND bell_schedule_history.bell_order = bell_end_time.bell_order
+                        ORDER BY change_time DESC
+                        LIMIT 1);
 end
 $$ language plpgsql;
 
@@ -457,16 +457,16 @@ CREATE OR REPLACE FUNCTION events_insert_trigger()
     RETURNS TRIGGER AS
 $$
 begin
-    if (!EXISTS(SELECT *
-                FROM events
-                WHERE events.room_id = NEW.room_id
-                  AND events.event_date = NEW.event_date
-                  AND events.event_bell = NEW.event_bell) AND
-        !EXISTS(SELECT *
-                FROM events
-                WHERE events.teacher_id = NEW.teacher_id
-                  AND events.event_date = NEW.event_date
-                  AND events.event_bell = NEW.event_bell)) then
+    if (NOT EXISTS(SELECT *
+                   FROM events
+                   WHERE events.room_id = NEW.room_id
+                     AND events.event_date = NEW.event_date
+                     AND events.event_bell = NEW.event_bell) AND
+        NOT EXISTS(SELECT *
+                   FROM events
+                   WHERE events.teacher_id = NEW.teacher_id
+                     AND events.event_date = NEW.event_date
+                     AND events.event_bell = NEW.event_bell)) then
         return NEW;
     else
         return NULL;
@@ -556,13 +556,13 @@ values ('Addition', 1, 20, 1),
        ('Words', 2, 30, 2);
 -- select * from themes;
 
-insert into bell_schedule_history (bell_order, begin_time, end_time)
-values (1, '08:00', '08:45'),
-       (2, '09:00', '09:45'),
-       (3, '09:55', '10:40'),
-       (4, '10:55', '11:40'),
-       (5, '12:00', '12:45'),
-       (6, '13:05', '13:50');
+insert into bell_schedule_history (bell_order, begin_time, end_time, change_time)
+values (1, '08:00', '08:45', '2015-01-01'),
+       (2, '09:00', '09:45', '2015-01-01'),
+       (3, '09:55', '10:40', '2015-01-01'),
+       (4, '10:55', '11:40', '2015-01-01'),
+       (5, '12:00', '12:45', '2015-01-01'),
+       (6, '13:05', '13:50', '2015-01-01');
 --  select * from bell_shedule_history;
 
 insert into groups (title, subject_id)
@@ -628,14 +628,11 @@ values (2, 2, 1, 'Thursday', True),
        (2, 3, 2, 'Thursday', True);
 --  select * from schedule_history;
 
---data bug!!!
-/*
-insert into events (room_id, teacher_id, theme_id, event_date, event_bell)
-values (3, 2, 1, '2015-05-27', 1),
-       (2, 3, 3, '2015-05-27', 2),
-       (3, 1, 3, '2015-05-27', 2);
+insert into events (room_id, teacher_id, theme_id, event_bell)
+values (3, 2, 1, 1),
+       (2, 3, 3, 2),
+       (3, 1, 3, 2);
 --  select * from events;
- */
 
 insert into mark_types(type_name, type_id)
 values ('exam', 1),
