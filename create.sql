@@ -382,9 +382,9 @@ AS
 $$
 begin
     return query
-        SELECT bell_order
-        FROM bell_schedule_history
-        WHERE bell_begin_time(at_date, bell_order) IS NOT NULL
+        SELECT sch.bell_order
+        FROM bell_schedule_history sch
+        WHERE bell_begin_time(at_date, sch.bell_order) IS NOT NULL
         ORDER BY 1;
 end;
 $$ language plpgsql;
