@@ -443,13 +443,16 @@ begin
     return query SELECT teacher_id, room_id, bell_order, subject_id
                  FROM schedule_history outer_h
                  WHERE subject_id IS NOT NULL
-                   AND change_date = (SELECT MAX(change_date)
-                                      FROM schedule_history inner_h
-                                      WHERE change_date <= at_date
-                                        AND week_day = at_date::week_day
-                                        AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
-                                        AND inner_h.teacher_id = outer_h.teacher_id
-                                        AND inner_h.bell_order = outer_h.bell_order);
+                   AND change_date <= at_date
+                   AND week_day = at_date::week_day
+                   AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
+                     AND change_date = (SELECT MAX(change_date)
+                                        FROM schedule_history inner_h
+                                        WHERE change_date <= at_date
+                                          AND week_day = at_date::week_day
+                                          AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
+                                          AND inner_h.teacher_id = outer_h.teacher_id
+                                          AND inner_h.bell_order = outer_h.bell_order);
 end;
 $$ language plpgsql;
 
