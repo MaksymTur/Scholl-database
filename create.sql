@@ -7,8 +7,8 @@ CREATE TYPE week_day AS enum ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Fri
 
 CREATE TABLE rooms
 (
-    title     text    NOT NULL,
-    room_type text    NOT NULL,
+    title     varchar(20)    NOT NULL,
+    room_type varchar(20)    NOT NULL,
     seats     integer NOT NULL,
     room_id   serial PRIMARY KEY,
 
@@ -17,7 +17,7 @@ CREATE TABLE rooms
 
 CREATE TABLE subjects
 (
-    title      text NOT NULL,
+    title      varchar(20) NOT NULL,
     subject_id serial PRIMARY KEY
 );
 
@@ -32,7 +32,7 @@ CREATE TABLE pupils
 
 CREATE TABLE themes
 (
-    title          text                    NOT NULL,
+    title          varchar(20)                    NOT NULL,
     subject_id     int REFERENCES subjects NOT NULL,
     lessons_length integer                 NOT NULL,
     theme_order    integer                 NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE bell_schedule_history
 
 CREATE TABLE "groups"
 (
-    title      text                        NOT NULL,
+    title      varchar(20)                        NOT NULL,
     subject_id integer REFERENCES subjects NOT NULL,
     group_id   serial PRIMARY KEY
 );
@@ -125,13 +125,13 @@ CREATE TABLE schedule_history
 (
     teacher_id  integer REFERENCES employees NOT NULL,
     room_id     integer REFERENCES rooms,
-    bell_number integer,
+    bell_order integer,
     "week_day"  week_day                     NOT NULL,
     is_odd_week bool,
-    change_time timestamp DEFAULT now()      NOT NULL,
+    change_date date DEFAULT now()      NOT NULL,
     id          serial PRIMARY KEY,
 
-    UNIQUE (teacher_id, room_id, bell_number, "week_day", is_odd_week, change_time)
+    UNIQUE (teacher_id, room_id, bell_order, "week_day", is_odd_week, change_date)
 );
 
 CREATE TABLE events
@@ -475,6 +475,12 @@ ALTER TABLE employees_history
     ADD CONSTRAINT employees_history_add_before_deletion_check
         CHECK (
             begin_time < end_time
+            );
+
+ALTER TABLE schedule_history
+    ADD CONSTRAINT schedule_history_bell_order_exists
+        CHECK (
+            bell_begin_time(change_date, bell_order) IS NOT NULL
             );
 
 ALTER TABLE events
