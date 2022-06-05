@@ -373,6 +373,22 @@ begin
 end
 $$ language plpgsql;
 
+CREATE FUNCTION get_lessons(at_date date)
+    RETURNS table
+            (
+                bell_order int
+            )
+AS
+$$
+begin
+    return query
+        SELECT bell_order
+        FROM bell_schedule_history
+        WHERE bell_begin_time(at_date, bell_order) IS NOT NULL
+        ORDER BY 1;
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
@@ -409,8 +425,8 @@ ALTER TABLE excuses
 ALTER TABLE excuses
     ADD CONSTRAINT excuses_excuse_in_study_time
         CHECK (
-            is_studying(pupil_id, bell_begin_time(begin_date, begin_bell)) AND
-            is_studying(pupil_id, bell_begin_time(end_date, end_bell))
+                is_studying(pupil_id, bell_begin_time(begin_date, begin_bell)) AND
+                is_studying(pupil_id, bell_begin_time(end_date, end_bell))
             );
 
 ALTER TABLE bell_schedule_history
