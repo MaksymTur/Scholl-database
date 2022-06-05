@@ -125,6 +125,7 @@ CREATE TABLE schedule_history
 (
     teacher_id  integer REFERENCES employees NOT NULL,
     room_id     integer REFERENCES rooms,
+    subject_id  integer REFERENCES subjects,
     bell_order  integer,
     "week_day"  week_day                     NOT NULL,
     is_odd_week bool,
@@ -395,6 +396,63 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_quarter_begin(at_date date)
+    RETURNS date AS
+$$
+begin
+    return (SELECT quarters.begin_date
+            FROM quarters
+            WHERE begin_date <= at_date
+            ORDER BY begin_date DESC
+            LIMIT 1);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_quarter_end(at_date date)
+    RETURNS date AS
+$$
+begin
+    return (SELECT quarters.end_date
+            FROM quarters
+            WHERE begin_date <= at_date
+            ORDER BY begin_date DESC
+            LIMIT 1);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_parity(at_date date)
+    RETURNS boolean AS
+$$
+begin
+    return (extract(epoch from date_trunc('week', at_date)) -
+            extract(epoch from date_trunc('week', get_quarter_begin(at_date)))) / 604800 % 2 = 0;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_schedule(at_date date)
+    RETURNS table
+            (
+                teacher_id integer,
+                room_id    integer,
+                bell_order integer,
+                subject_id integer
+            )
+AS
+$$
+begin
+    return query SELECT teacher_id, room_id, bell_order, subject_id
+                 FROM schedule_history outer_h
+                 WHERE subject_id IS NOT NULL
+                   AND change_date = (SELECT MAX(change_date)
+                                      FROM schedule_history inner_h
+                                      WHERE change_date <= at_date
+                                        AND week_day = at_date::week_day
+                                        AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
+                                        AND inner_h.teacher_id = outer_h.teacher_id
+                                        AND inner_h.bell_order = outer_h.bell_order);
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
@@ -483,32 +541,6 @@ ALTER TABLE schedule_history
         CHECK (
             bell_begin_time(change_date, bell_order) IS NOT NULL
             );
-
-CREATE FUNCTION schedule_history_insert_trigger()
-    RETURNS TRIGGER AS
-$$
-declare
-    i record;
-begin
-    for i in (SELECT * FROM schedule_history)
-        loop
-            if ((NEW.bell_order = i.bell_order
-                AND NEW.week_day = i.week_day
-                AND (NEW.is_odd_week = i.is_odd_week OR NEW.is_odd_week IS NULL OR i.is_odd_week IS NULL))
-                AND (NEW.room_id = i.room_id OR NEW.teacher_id = i.teacher_id)) then
-                    return NULL;
-            end if;
-        end loop;
-    return NEW;
-end;
-$$
-    LANGUAGE PLPGSQL;
-
-CREATE TRIGGER schedule_history_teacher_and_room_non_intersect_trigger
-    BEFORE INSERT
-    ON schedule_history
-    FOR EACH ROW
-EXECUTE PROCEDURE schedule_history_insert_trigger();
 
 ALTER TABLE events
     ADD CONSTRAINT events_bell_exists_check
