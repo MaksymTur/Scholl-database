@@ -376,15 +376,18 @@ $$ language plpgsql;
 CREATE FUNCTION get_lessons(at_date date)
     RETURNS table
             (
-                bell_order int
+                bell_order int,
+                begin_time timestamp,
+                end_time timestamp
             )
 AS
 $$
 begin
     return query
-        SELECT sch.bell_order
+        SELECT sch.bell_order, bell_begin_time(at_date, sch.bell_order), bell_end_time(at_date, sch.bell_order)
         FROM bell_schedule_history sch
         WHERE bell_begin_time(at_date, sch.bell_order) IS NOT NULL
+        GROUP BY sch.bell_order, at_date
         ORDER BY 1;
 end;
 $$ language plpgsql;
