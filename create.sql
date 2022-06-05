@@ -357,7 +357,9 @@ begin
     return (SELECT class_history.class_id
             FROM class_history
             WHERE class_history.pupil_id = is_studying.pupil_id
-              AND class_history.change_time = is_studying.at_time) IS NOT NULL;
+              AND class_history.change_time <= is_studying.at_time
+            ORDER BY change_time DESC
+            LIMIT 1) IS NOT NULL;
 end
 $$ language plpgsql;
 
@@ -438,6 +440,31 @@ ALTER TABLE bell_schedule_history
             begin_time < end_time
             );
 
+CREATE OR REPLACE FUNCTION bell_schedule_history_insert_trigger()
+    RETURNS TRIGGER AS
+$$
+declare
+    bell_order int;
+    begin_time timestamp;
+    end_time timestamp;
+begin
+    for bell_order, begin_time, end_time in (SELECT get_lessons(NEW.change_time::date))
+        loop
+            if (NOT (NEW.begin_time > end_time OR begin_time > NEW.end_time)) then
+                NEW := NULL;
+            end if;
+        end loop;
+    return NEW;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER bell_schedule_history_non_intersect_trigger
+    BEFORE INSERT
+    ON bell_schedule_history
+    FOR EACH ROW
+EXECUTE PROCEDURE bell_schedule_history_insert_trigger();
+
 ALTER TABLE groups_history
     ADD CONSTRAINT groups_history_add_before_deletion_check
         CHECK (
@@ -496,6 +523,29 @@ ALTER TABLE marks
             mark >= 1 AND mark <= 12
             );
 
+CREATE OR REPLACE FUNCTION quarters_insert_trigger()
+    RETURNS TRIGGER AS
+$$
+declare
+    i record;
+begin
+    for i in (SELECT * FROM quarters)
+        loop
+            if (NOT (NEW.begin_date > i.end_date OR i.begin_date > NEW.end_date)) then
+                NEW := NULL;
+            end if;
+        end loop;
+    return NEW;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER quarters_non_intersect_trigger
+    BEFORE INSERT
+    ON quarters
+    FOR EACH ROW
+EXECUTE PROCEDURE quarters_insert_trigger();
+
 ALTER TABLE quarters
     ADD CONSTRAINT quarters_begin_before_end
         CHECK (
@@ -507,6 +557,29 @@ ALTER TABLE holidays
         CHECK (
             begin_date < end_date
             );
+
+CREATE OR REPLACE FUNCTION holidays_insert_trigger()
+    RETURNS TRIGGER AS
+$$
+declare
+    i record;
+begin
+    for i in (SELECT * FROM holidays)
+        loop
+            if (NOT (NEW.begin_date > i.end_date OR i.begin_date > NEW.end_date)) then
+                NEW := NULL;
+            end if;
+        end loop;
+    return NEW;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER holidays_non_intersect_trigger
+    BEFORE INSERT
+    ON holidays
+    FOR EACH ROW
+EXECUTE PROCEDURE holidays_insert_trigger();
 
 ALTER TABLE salary_history
     ADD CONSTRAINT salary_history_salary_positive_check
@@ -524,6 +597,12 @@ ALTER TABLE classes
     ADD CONSTRAINT classes_normal_study_year_check
         CHECK (
             study_year > 0 AND study_year < 13
+            );
+
+ALTER TABLE class_teacher_history
+    ADD CONSTRAINT class_teacher_history_class_teacher_only_at_work_time
+        CHECK (
+            is_working(teacher_id, change_time)
             );
 
 --checkers and triggers block end
