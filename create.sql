@@ -70,36 +70,36 @@ CREATE TABLE "groups"
 
 CREATE TABLE groups_history
 (
-    pupil_id      int REFERENCES pupils   NOT NULL,
-    group_id      int REFERENCES "groups" NOT NULL,
-    add_time      timestamp DEFAULT now() NOT NULL,
-    deletion_time timestamp DEFAULT NULL,
+    pupil_id   int REFERENCES pupils   NOT NULL,
+    group_id   int REFERENCES "groups" NOT NULL,
+    begin_time timestamp DEFAULT now() NOT NULL,
+    end_time   timestamp DEFAULT NULL,
 
-    PRIMARY KEY (pupil_id, group_id, add_time)
+    PRIMARY KEY (pupil_id, group_id, begin_time)
 );
 
 CREATE TABLE employees
 (
-    first_name  text,
-    second_name text,
-    employee_id   serial PRIMARY KEY
+    first_name  varchar(20),
+    second_name varchar(20),
+    employee_id serial PRIMARY KEY
 );
 
 CREATE TABLE posts
 (
-    title   text,
+    title   varchar(20),
     post_id serial PRIMARY KEY
 );
 
 
 CREATE TABLE employees_history
 (
-    employee_id     int REFERENCES employees NOT NULL,
-    post_id       int REFERENCES posts   NOT NULL,
-    add_time      timestamp              NOT NULL,
-    deletion_time timestamp DEFAULT NULL,
+    employee_id int REFERENCES employees NOT NULL,
+    post_id     int REFERENCES posts     NOT NULL,
+    begin_time  timestamp                NOT NULL,
+    end_time    timestamp DEFAULT NULL,
 
-    PRIMARY KEY (employee_id, post_id, add_time)
+    PRIMARY KEY (employee_id, post_id, begin_time)
 );
 
 
@@ -126,9 +126,9 @@ CREATE TABLE schedule_history
     teacher_id  integer REFERENCES employees NOT NULL,
     room_id     integer REFERENCES rooms,
     bell_number integer,
-    "week_day"  week_day                   NOT NULL,
+    "week_day"  week_day                     NOT NULL,
     is_odd_week bool,
-    change_time timestamp DEFAULT now()    NOT NULL,
+    change_time timestamp DEFAULT now()      NOT NULL,
     id          serial PRIMARY KEY,
 
     UNIQUE (teacher_id, room_id, bell_number, "week_day", is_odd_week, change_time)
@@ -139,8 +139,8 @@ CREATE TABLE events
     room_id    integer REFERENCES rooms,
     teacher_id integer REFERENCES employees NOT NULL,
     theme_id   integer REFERENCES themes,
-    event_date date                       NOT NULL,
-    event_bell int                        NOT NULL,
+    event_date date                         NOT NULL,
+    event_bell int                          NOT NULL,
     event_id   serial PRIMARY KEY,
 
     UNIQUE (teacher_id, event_date, event_bell)
@@ -187,9 +187,9 @@ CREATE TABLE holidays
 
 CREATE TABLE salary_history
 (
-    employee_id   int REFERENCES employees NOT NULL,
-    salary      int                    NOT NULL,
-    change_time timestamp              NOT NULL,
+    employee_id int REFERENCES employees NOT NULL,
+    salary      int                      NOT NULL,
+    change_time timestamp                NOT NULL,
 
     PRIMARY KEY (employee_id, change_time)
 );
@@ -203,19 +203,18 @@ CREATE TABLE classes
 
 CREATE TABLE class_history
 (
-    pupil_id      int REFERENCES pupils  NOT NULL,
-    class_id      int REFERENCES classes NOT NULL,
-    add_time      timestamp              NOT NULL,
-    deletion_time timestamp DEFAULT NULL,
+    pupil_id    int REFERENCES pupils NOT NULL,
+    class_id    int REFERENCES classes,
+    change_time timestamp             NOT NULL,
 
-    PRIMARY KEY (pupil_id, class_id, add_time)
+    PRIMARY KEY (pupil_id, class_id, change_time)
 );
 
 CREATE TABLE class_teacher_history
 (
-    class_id    int REFERENCES classes NOT NULL,
+    class_id    int REFERENCES classes   NOT NULL,
     teacher_id  int REFERENCES employees NOT NULL,
-    change_time timestamp              NOT NULL,
+    change_time timestamp                NOT NULL,
 
     PRIMARY KEY (class_id, teacher_id, change_time)
 );
@@ -255,8 +254,8 @@ begin
             FROM employees_history
             WHERE employee_id = employee
               AND post_id = post
-              AND add_time <= check_time
-              AND (deletion_time IS NULL OR deletion_time > check_time)) = 1;
+              AND begin_time <= check_time
+              AND (end_time IS NULL OR end_time > check_time)) = 1;
 end;
 $$ language plpgsql;
 
@@ -267,7 +266,7 @@ begin
     if has_post(employee, post) then
         return false;
     end if;
-    INSERT INTO employees_history(employee_id, post_id, add_time)
+    INSERT INTO employees_history(employee_id, post_id, begin_time)
     VALUES (employee, post, now());
     return true;
 end
@@ -281,8 +280,8 @@ begin
         return false;
     end if;
     UPDATE employees_history
-    SET deletion_time = now()
-    WHERE deletion_time IS NULL;
+    SET end_time = now()
+    WHERE end_time IS NULL;
     return true;
 end
 $$ language plpgsql;
@@ -291,9 +290,21 @@ CREATE FUNCTION study_start(pupil_id int)
     RETURNS timestamp AS
 $$
 begin
-    SELECT add_time
+    SELECT change_time
     FROM class_history
     WHERE class_history.pupil_id = study_start.pupil_id
+    ORDER BY 1
+    LIMIT 1;
+end
+$$ language plpgsql;
+
+CREATE FUNCTION work_start(employee_id int)
+    RETURNS timestamp AS
+$$
+begin
+    SELECT begin_time
+    FROM employees_history
+    WHERE employees_history.employee_id = work_start.employee_id
     ORDER BY 1
     LIMIT 1;
 end
@@ -339,6 +350,29 @@ begin
 end
 $$ language plpgsql;
 
+CREATE FUNCTION is_studying(pupil_id int, at_time timestamp)
+    RETURNS boolean AS
+$$
+begin
+    return (SELECT class_history.class_id
+            FROM class_history
+            WHERE class_history.pupil_id = is_studying.pupil_id
+              AND class_history.change_time = is_studying.at_time) IS NOT NULL;
+end
+$$ language plpgsql;
+
+CREATE FUNCTION is_working(employee_id int, at_time timestamp)
+    RETURNS boolean AS
+$$
+begin
+    return EXISTS(SELECT *
+                  FROM employees_history
+                  WHERE employees_history.employee_id = is_working.employee_id
+                    AND employees_history.begin_time <= is_working.at_time
+                    AND (employees_history.end_time IS NULL OR employees_history.end_time >= at_time));
+end
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
@@ -373,9 +407,10 @@ ALTER TABLE excuses
             );
 
 ALTER TABLE excuses
-    ADD CONSTRAINT excuses_begin_after_study_begin_check
+    ADD CONSTRAINT excuses_excuse_in_study_time
         CHECK (
-            bell_begin_time(begin_date, begin_bell) >= study_start(pupil_id)
+            is_studying(pupil_id, bell_begin_time(begin_date, begin_bell)) AND
+            is_studying(pupil_id, bell_begin_time(end_date, end_bell))
             );
 
 ALTER TABLE bell_schedule_history
@@ -387,13 +422,13 @@ ALTER TABLE bell_schedule_history
 ALTER TABLE groups_history
     ADD CONSTRAINT groups_history_add_before_deletion_check
         CHECK (
-            add_time < deletion_time
+            begin_time < end_time
             );
 
 ALTER TABLE employees_history
     ADD CONSTRAINT employees_history_add_before_deletion_check
         CHECK (
-            add_time < deletion_time
+            begin_time < end_time
             );
 
 ALTER TABLE events
@@ -452,6 +487,18 @@ ALTER TABLE holidays
     ADD CONSTRAINT holidays_begin_before_end
         CHECK (
             begin_date < end_date
+            );
+
+ALTER TABLE salary_history
+    ADD CONSTRAINT salary_history_salary_positive_check
+        CHECK (
+            salary > 0
+            );
+
+ALTER TABLE salary_history
+    ADD CONSTRAINT salary_history_salary_while_working
+        CHECK (
+            is_working(employee_id, change_time)
             );
 
 ALTER TABLE classes
@@ -547,7 +594,7 @@ values ('Director'),
        ('classroom teacher');
 --  select * from posts;
 
-insert into employees_history (employee_id, post_id, add_time, deletion_time)
+insert into employees_history (employee_id, post_id, begin_time, end_time)
 values (1, 3, '2021-08-09 07:00:00', default),
        (2, 1, '2021-08-09 07:01:00', default),
        (3, 2, '2021-08-09 07:02:00', '2021-08-15 07:02:00'),
@@ -622,7 +669,7 @@ values ('A', 1),
        ('B', 1);
 --  select * from classes;
 
-insert into class_history (pupil_id, class_id, add_time)
+insert into class_history (pupil_id, class_id, change_time)
 values (1, 1, '2021-08-31 07:02:00'),
        (2, 1, '2021-08-31 07:02:00'),
        (3, 1, '2021-08-31 07:02:00'),
