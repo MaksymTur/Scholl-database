@@ -63,7 +63,7 @@ CREATE TABLE bell_schedule_history
 
 CREATE TABLE "groups"
 (
-    title      varchar(20)                 NOT NULL,
+    title      varchar(40)                 NOT NULL,
     subject_id integer REFERENCES subjects NOT NULL,
     group_id   serial PRIMARY KEY
 );
@@ -311,7 +311,7 @@ begin
 end
 $$ language plpgsql;
 
-CREATE OR REPLACE FUNCTION bell_begin_time(bell_date date, bell_order int)
+CREATE FUNCTION bell_begin_time(bell_date date, bell_order int)
     RETURNS timestamp AS
 $$
 begin
@@ -441,7 +441,7 @@ ALTER TABLE bell_schedule_history
             begin_time < end_time
             );
 
-CREATE OR REPLACE FUNCTION bell_schedule_history_insert_trigger()
+CREATE FUNCTION bell_schedule_history_insert_trigger()
     RETURNS TRIGGER AS
 $$
 declare
@@ -484,7 +484,7 @@ ALTER TABLE schedule_history
             bell_begin_time(change_date, bell_order) IS NOT NULL
             );
 
-CREATE OR REPLACE FUNCTION schedule_history_insert_trigger()
+CREATE FUNCTION schedule_history_insert_trigger()
     RETURNS TRIGGER AS
 $$
 declare
@@ -492,10 +492,10 @@ declare
 begin
     for i in (SELECT * FROM schedule_history)
         loop
-            if ((NEW.bell_order == i.bell_order
-                AND NEW.week_day == i.week_day
-                AND (NEW.is_odd_week == i.is_odd_week OR NEW.is_odd_week IS NULL OR i.is_odd_week IS NULL))
-                AND (NEW.room_id == i.room_id OR NEW.teacher_id == i.teacher_id)) then
+            if ((NEW.bell_order = i.bell_order
+                AND NEW.week_day = i.week_day
+                AND (NEW.is_odd_week = i.is_odd_week OR NEW.is_odd_week IS NULL OR i.is_odd_week IS NULL))
+                AND (NEW.room_id = i.room_id OR NEW.teacher_id = i.teacher_id)) then
                     return NULL;
             end if;
         end loop;
@@ -508,7 +508,7 @@ CREATE TRIGGER schedule_history_teacher_and_room_non_intersect_trigger
     BEFORE INSERT
     ON schedule_history
     FOR EACH ROW
-EXECUTE PROCEDURE events_insert_trigger();
+EXECUTE PROCEDURE schedule_history_insert_trigger();
 
 ALTER TABLE events
     ADD CONSTRAINT events_bell_exists_check
@@ -528,7 +528,7 @@ ALTER TABLE marks
             mark >= 1 AND mark <= 12
             );
 
-CREATE OR REPLACE FUNCTION quarters_insert_trigger()
+CREATE FUNCTION quarters_insert_trigger()
     RETURNS TRIGGER AS
 $$
 declare
@@ -563,7 +563,7 @@ ALTER TABLE holidays
             begin_date < end_date
             );
 
-CREATE OR REPLACE FUNCTION holidays_insert_trigger()
+CREATE FUNCTION holidays_insert_trigger()
     RETURNS TRIGGER AS
 $$
 declare
@@ -711,7 +711,7 @@ values (1, 3, '2021-08-09 07:00:00', default),
        (3, 4, '2021-08-31 15:00:00', default);
 --  select * from employees_history;
 
-insert into schedule_history (teacher_id, room_id, bell_number, week_day, is_odd_week)
+insert into schedule_history (teacher_id, room_id, bell_order, week_day, is_odd_week)
 values (2, 2, 1, 'Thursday', True),
        (2, 2, 1, 'Thursday', False),
        (1, 4, 1, 'Thursday', False),
