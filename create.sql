@@ -268,10 +268,10 @@ CREATE TABLE groups_to_events
 
 CREATE TABLE groups_to_schedule
 (
-    "group"           int REFERENCES groups           NOT NULL,
-    event_in_schedule int REFERENCES schedule_history NOT NULL,
+    group_id             int REFERENCES groups           NOT NULL,
+    event_in_schedule_id int REFERENCES schedule_history NOT NULL,
 
-    PRIMARY KEY ("group", event_in_schedule)
+    PRIMARY KEY (group_id, event_in_schedule_id)
 );
 
 --table block end
@@ -539,21 +539,21 @@ CREATE FUNCTION get_schedule(week_day1 week_day, is_odd_week1 boolean, last_chan
 AS
 $$
 begin
-    return query SELECT teacher_id, room_id, bell_order, subject_id
+    return query SELECT outer_h.teacher_id, outer_h.room_id, outer_h.bell_order, outer_h.subject_id
                  FROM schedule_history outer_h
-                 WHERE subject_id IS NOT NULL
-                   AND change_date <= last_change_date1
+                 WHERE outer_h.subject_id IS NOT NULL
+                   AND outer_h.change_date <= last_change_date1
                    AND outer_h.week_day = week_day1
-                   AND (is_odd_week IS NULL OR is_odd_week = is_odd_week1 OR is_odd_week1 IS NULL)
-                   AND change_date = (SELECT MAX(change_date)
-                                      FROM schedule_history inner_h
-                                      WHERE change_date <= last_change_date1
-                                          AND week_day1 = outer_h.week_day
-                                          AND is_odd_week IS NULL
-                                         OR is_odd_week = is_odd_week1
-                                         OR is_odd_week1 IS NULL
-                                          AND inner_h.teacher_id = outer_h.teacher_id
-                                          AND inner_h.bell_order = outer_h.bell_order);
+                   AND (outer_h.is_odd_week IS NULL OR outer_h.is_odd_week = is_odd_week1 OR is_odd_week1 IS NULL)
+                   AND outer_h.change_date = (SELECT MAX(change_date)
+                                              FROM schedule_history inner_h
+                                              WHERE inner_h.change_date <= last_change_date1
+                                                  AND week_day1 = outer_h.week_day
+                                                  AND inner_h.is_odd_week IS NULL
+                                                 OR inner_h.is_odd_week = is_odd_week1
+                                                 OR is_odd_week1 IS NULL
+                                                  AND inner_h.teacher_id = outer_h.teacher_id
+                                                  AND inner_h.bell_order = outer_h.bell_order);
 end;
 $$ language plpgsql;
 
@@ -565,7 +565,7 @@ declare
     at_date date;
 begin
     at_date := change_time::date;
-    if (get_week_day(at_date) == week_day
+    if (get_week_day(at_date) = week_day
         AND (is_odd_week IS NULL OR get_parity(at_date) = is_odd_week)
         AND bell_begin_time(at_date, bell_order) <= change_time::time) then
         INSERT INTO schedule_history (teacher_id, room_id, bell_order, week_day, is_odd_week, change_date)
@@ -708,8 +708,8 @@ declare
 begin
     for i in (SELECT * FROM get_schedule(NEW.week_day, NEW.is_odd_week, NEW.change_date))
         loop
-            if (NEW.bell_order != i.bell_order
-                AND NEW.room_id == i.room_id
+            if (NEW.bell_order = i.bell_order
+                AND NEW.room_id = i.room_id
                 AND NEW.teacher_id != i.teacher_id) then
                 return NULL;
             end if;
@@ -856,6 +856,29 @@ CREATE TRIGGER journal_pupil_from_group_on_event
     FOR EACH ROW
 EXECUTE PROCEDURE journal_insert_trigger();
 
+CREATE FUNCTION groups_to_events_delete_trigger()
+    RETURNS TRIGGER AS
+$$
+declare
+    i integer;
+begin
+    for i in (SELECT get_pupils_from_group(OLD.group_id, bell_begin_time(
+            (SELECT event_date FROM events WHERE events.event_id = OLD.event_id),
+            (SELECT event_bell FROM events WHERE events.event_id = OLD.event_id)))) loop
+        DELETE FROM journal
+        WHERE pupil_id = i
+        AND journal.event_id = OLD.event_id;
+        end loop;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER groups_to_events_delete_from_journal_on_delete
+    BEFORE INSERT
+    ON groups_to_events
+    FOR EACH ROW
+EXECUTE PROCEDURE groups_to_events_delete_trigger();
+
 --checkers and triggers block end
 --indexes block
 
@@ -900,7 +923,7 @@ values (1, '08:00', '08:45', '2015-01-01'),
        (4, '10:55', '11:40', '2015-01-01'),
        (5, '12:00', '12:45', '2015-01-01'),
        (6, '13:05', '13:50', '2015-01-01');
---  select * from bell_shedule_history;
+--  select * from bell_schedule_history;
 
 insert into groups (title, subject_id)
 values ('A1 Math group', 1),
@@ -1062,7 +1085,7 @@ values (1, 1),
 -- select * from groups_to_events;
  */
 
-insert into groups_to_schedule ("group", event_in_schedule)
+insert into groups_to_schedule (group_id, event_in_schedule_id)
 values (1, 1),
        (2, 4),
        (3, 5),
