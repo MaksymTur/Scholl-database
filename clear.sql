@@ -94,9 +94,13 @@ drop function if exists get_groups_from_event(integer) cascade;
 
 drop function if exists bell_schedule_history_insert_trigger() cascade;
 
+drop function if exists schedule_history_insert_trigger() cascade;
+
 drop function if exists quarters_insert_trigger() cascade;
 
 drop function if exists holidays_insert_trigger() cascade;
 
 drop function if exists journal_insert_trigger() cascade;
+
+drop function if exists groups_to_events_delete_trigger() cascade;
 

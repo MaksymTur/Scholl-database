@@ -28,7 +28,7 @@ CREATE TABLE pupils
 (
     date_of_birth date        NOT NULL,
     first_name    varchar(20) NOT NULL,
-    second_name   varchar(20) NOT NULL,
+    last_name   varchar(20) NOT NULL,
     pupil_id      serial,
 
     PRIMARY KEY (pupil_id)
@@ -95,7 +95,7 @@ CREATE TABLE groups_history
 CREATE TABLE employees
 (
     first_name  varchar(20),
-    second_name varchar(20),
+    last_name varchar(20),
     employee_id serial,
 
     PRIMARY KEY (employee_id)
@@ -864,10 +864,12 @@ declare
 begin
     for i in (SELECT get_pupils_from_group(OLD.group_id, bell_begin_time(
             (SELECT event_date FROM events WHERE events.event_id = OLD.event_id),
-            (SELECT event_bell FROM events WHERE events.event_id = OLD.event_id)))) loop
-        DELETE FROM journal
-        WHERE pupil_id = i
-        AND journal.event_id = OLD.event_id;
+            (SELECT event_bell FROM events WHERE events.event_id = OLD.event_id))))
+        loop
+            DELETE
+            FROM journal
+            WHERE pupil_id = i
+              AND journal.event_id = OLD.event_id;
         end loop;
 end;
 $$
@@ -898,7 +900,7 @@ values ('Mathematics'),
        ('English');
 --  select * from subjects;
 
-insert into pupils (date_of_birth, first_name, second_name)
+insert into pupils (date_of_birth, first_name, last_name)
 values ('2015-01-23', 'Ernie', 'Webber'),
        ('2015-02-15', 'Ismail', 'Ferrell'),
        ('2015-04-25', 'Salahuddin', 'Fellows'),
@@ -957,7 +959,7 @@ values (1, 1),
        (8, 4);
 --  select * from groups_history;
 
-insert into employees (first_name, second_name)
+insert into employees (first_name, last_name)
 values ('Maksym', 'Tur'),
        ('Andrii', 'Kovryhin'),
        ('Aliaksandr', 'Skvarniuk');
