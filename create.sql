@@ -28,7 +28,7 @@ CREATE TABLE pupils
 (
     date_of_birth date        NOT NULL,
     first_name    varchar(20) NOT NULL,
-    last_name   varchar(20) NOT NULL,
+    last_name     varchar(20) NOT NULL,
     pupil_id      serial,
 
     PRIMARY KEY (pupil_id)
@@ -95,7 +95,7 @@ CREATE TABLE groups_history
 CREATE TABLE employees
 (
     first_name  varchar(20),
-    last_name varchar(20),
+    last_name   varchar(20),
     employee_id serial,
 
     PRIMARY KEY (employee_id)
@@ -119,25 +119,6 @@ CREATE TABLE employees_history
 
     PRIMARY KEY (employee_id, post_id, begin_time)
 );
-
-
--- CREATE FUNCTION get_lesson_bounds(lesson_date date, lesson_bell int)
---     RETURNS record AS
--- $$
--- declare
---     res record;
--- begin
---     SELECT begin_time, end_time
---     FROM bell_schedule_history
---     WHERE bell_order = lesson_bell
---       AND change_time = (SELECT MAX(change_time)
---                          FROM bell_schedule_history
---                          WHERE bell_order = lesson_bell
---                            AND change_time <= lesson_date)
---     INTO res;
---     return res;
--- end;
--- $$ language plpgsql;
 
 CREATE TABLE schedule_history
 (
@@ -234,9 +215,9 @@ CREATE TABLE classes
 
 CREATE TABLE class_history
 (
-    pupil_id    int REFERENCES pupils NOT NULL,
+    pupil_id    int REFERENCES pupils   NOT NULL,
     class_id    int REFERENCES classes,
-    change_time timestamp             NOT NULL,
+    change_time timestamp DEFAULT NOW() NOT NULL,
 
     PRIMARY KEY (pupil_id, class_id, change_time)
 );
@@ -884,11 +865,52 @@ EXECUTE PROCEDURE groups_to_events_delete_trigger();
 --checkers and triggers block end
 --indexes block
 
+CREATE INDEX
+    ON rooms (room_type);
+
+CREATE INDEX
+    ON pupils (date_of_birth);
+
+CREATE INDEX
+    ON themes (theme_order);
+
+CREATE INDEX
+    ON excuses (begin_date, begin_bell, end_date, end_bell);
+
+CREATE INDEX
+    ON bell_schedule_history (change_date);
+
+CREATE INDEX
+    ON schedule_history (change_date);
+
+CREATE INDEX
+    ON schedule_history (change_date);
+
+CREATE INDEX
+    ON events (event_date, event_bell);
+
+CREATE INDEX
+    ON type_weights_history (change_date);
+
+CREATE INDEX
+    ON quarters(begin_date, end_date);
+
+CREATE INDEX
+    ON holidays(begin_date, end_date);
+
+CREATE INDEX
+    ON salary_history(change_time);
+
+CREATE INDEX
+    ON class_history(change_time);
+
+CREATE INDEX
+    ON class_teacher_history(change_time);
 
 --indexes block end
 --data examples block
 
-insert into rooms (title, room_type, seats)
+        insert into rooms (title, room_type, seats)
 values ('101a', 'gym', 40),
        ('102a', 'basic', 8),
        ('102b', 'basic', 8),
