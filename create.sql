@@ -37,7 +37,7 @@ CREATE TABLE pupils
 
 CREATE TABLE themes
 (
-    title          varchar(20)             NOT NULL,
+    title          varchar(40)             NOT NULL,
     subject_id     int REFERENCES subjects NOT NULL,
     lessons_length integer                 NOT NULL,
     theme_order    integer                 NOT NULL,
@@ -908,8 +908,34 @@ CREATE INDEX
     ON class_teacher_history(change_time);
 
 --indexes block end
---data examples block
 
+--data final block
+
+\i FillUtils/quarterholidaybells.sql
+\i FillUtils/marksBlock.sql
+\i FillUtils/pupilsInsert.sql
+\i FillUtils/subjectsBlock.sql
+\i FillUtils/classesInsert.sql
+\i FillUtils/employeesBlock.sql
+\i FillUtils/eventsBlock.sql
+
+insert into schedule_history (teacher_id, room_id, bell_order, subject_id, week_day, is_odd_week)
+values (2, 2, 1, 1, 'Thursday', True),
+       (2, 2, 1, 2, 'Thursday', False),
+       (1, 4, 1, 1, 'Thursday', False),
+       (3, 2, 2, 2, 'Thursday', True),
+       (2, 3, 2, 2, 'Thursday', True);
+
+insert into events (room_id, teacher_id, theme_id, event_bell)
+values (3, 2, 1, 1),
+       (2, 3, 3, 2),
+       (3, 1, 3, 2);
+
+--data final block end
+
+
+--data examples block
+/*
         insert into rooms (title, room_type, seats)
 values ('101a', 'gym', 40),
        ('102a', 'basic', 8),
@@ -946,7 +972,8 @@ values (1, '08:00', '08:45', '2015-01-01'),
        (3, '09:55', '10:40', '2015-01-01'),
        (4, '10:55', '11:40', '2015-01-01'),
        (5, '12:00', '12:45', '2015-01-01'),
-       (6, '13:05', '13:50', '2015-01-01');
+       (6, '13:05', '13:50', '2015-01-01'),
+       (7, '14.05', '14.50', '2015-01-01');
 --  select * from bell_schedule_history;
 
 insert into groups (title, subject_id)
@@ -1116,5 +1143,6 @@ values (1, 1),
        (4, 3);
 --  select * from groups_to_schedule;
 
+*/
 --data examples block end
 
