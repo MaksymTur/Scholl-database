@@ -50,6 +50,8 @@ drop table if exists subjects cascade;
 
 drop table if exists employees cascade;
 
+drop function if exists get_week_day(date) cascade;
+
 drop function if exists has_post(integer, integer, timestamp) cascade;
 
 drop function if exists add_post(integer, integer) cascade;
@@ -70,7 +72,7 @@ drop function if exists is_studying(integer, timestamp) cascade;
 
 drop function if exists is_working(integer, timestamp) cascade;
 
-drop function if exists get_lessons(date) cascade;
+drop function if exists get_bells_schedule(date) cascade;
 
 drop function if exists get_quarter_begin(date) cascade;
 
@@ -80,9 +82,14 @@ drop function if exists get_parity(date) cascade;
 
 drop function if exists get_schedule(date) cascade;
 
+drop function if exists add_bell(integer, time, time, timestamp) cascade;
+
+drop function if exists get_schedule(week_day, boolean, date) cascade;
+
+drop function if exists add_to_schedule(integer, integer, integer, week_day, boolean, timestamp) cascade;
+
 drop function if exists bell_schedule_history_insert_trigger() cascade;
 
 drop function if exists quarters_insert_trigger() cascade;
 
 drop function if exists holidays_insert_trigger() cascade;
-

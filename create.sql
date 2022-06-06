@@ -67,7 +67,7 @@ CREATE TABLE bell_schedule_history
     bell_order  int,
     begin_time  time               NOT NULL,
     end_time    time               NOT NULL,
-    change_time date DEFAULT now() NOT NULL,
+    change_date date DEFAULT now() NOT NULL,
     change_id   serial,
 
     PRIMARY KEY (change_id)
@@ -77,7 +77,7 @@ CREATE TABLE "groups"
 (
     title      varchar(40)                 NOT NULL,
     subject_id integer REFERENCES subjects NOT NULL,
-    group_id   serial PRIMARY KEY,
+    group_id   serial,
 
     PRIMARY KEY (group_id)
 );
@@ -229,7 +229,7 @@ CREATE TABLE classes
     study_year int         NOT NULL,
     class_id   serial,
 
-    PRIMARY KEY(class_id)
+    PRIMARY KEY (class_id)
 );
 
 CREATE TABLE class_history
@@ -276,6 +276,31 @@ CREATE TABLE groups_to_schedule
 
 --table block end
 -- functions block
+
+CREATE FUNCTION get_week_day(at_date date = NOW()::date)
+    RETURNS week_day AS
+$$
+declare
+    a integer;
+begin
+    a = extract(isodow from at_date);
+    if (a = 1) then
+        return 'Monday';
+    elseif (a = 2) then
+        return 'Tuesday';
+    elseif (a = 3) then
+        return 'Wednesday';
+    elseif (a = 4) then
+        return 'Tuesday';
+    elseif (a = 5) then
+        return 'Friday';
+    elseif (a = 6) then
+        return 'Saturday';
+    else
+        return 'Sunday';
+    end if;
+end;
+$$ language plpgsql;
 
 CREATE FUNCTION has_post(employee int, post int, check_time timestamp DEFAULT now())
     RETURNS bool AS
@@ -350,9 +375,9 @@ begin
     end if;
     return bell_date + (SELECT begin_time
                         FROM bell_schedule_history
-                        WHERE change_time < bell_date
+                        WHERE change_date < bell_date
                           AND bell_schedule_history.bell_order = bell_begin_time.bell_order
-                        ORDER BY change_time DESC
+                        ORDER BY change_date DESC
                         LIMIT 1);
 end
 $$ language plpgsql;
@@ -363,9 +388,9 @@ $$
 begin
     return bell_date + (SELECT end_time
                         FROM bell_schedule_history
-                        WHERE change_time < bell_date
+                        WHERE change_date < bell_date
                           AND bell_schedule_history.bell_order = bell_end_time.bell_order
-                        ORDER BY change_time DESC
+                        ORDER BY change_date DESC
                         LIMIT 1);
 end
 $$ language plpgsql;
@@ -406,7 +431,7 @@ begin
 end
 $$ language plpgsql;
 
-CREATE FUNCTION get_lessons(at_date date)
+CREATE FUNCTION get_bells_schedule(at_date date)
     RETURNS table
             (
                 bell_order int,
@@ -473,7 +498,7 @@ begin
                  FROM schedule_history outer_h
                  WHERE subject_id IS NOT NULL
                    AND change_date <= at_date
-                   AND week_day = at_date::week_day
+                   AND week_day = get_week_day(at_date)
                    AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
                    AND change_date = (SELECT MAX(change_date)
                                       FROM schedule_history inner_h
@@ -482,6 +507,76 @@ begin
                                         AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
                                         AND inner_h.teacher_id = outer_h.teacher_id
                                         AND inner_h.bell_order = outer_h.bell_order);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION add_bell(bell_order integer, begin_time time, end_time time, change_time timestamp = NOW())
+    RETURNS void AS
+$$
+begin
+    if ((SELECT sch.begin_time
+         FROM get_bells_schedule(change_time::date) sch
+         WHERE sch.bell_order = add_bell.bell_order) <= change_time::time) then
+        INSERT INTO bell_schedule_history (bell_order, begin_time, end_time, change_date)
+        VALUES (add_bell.bell_order, add_bell.begin_time, add_bell.end_time,
+                add_bell.change_time::date + INTERVAL '1 day');
+    else
+        INSERT INTO bell_schedule_history (bell_order, begin_time, end_time, change_date)
+        VALUES (add_bell.bell_order, add_bell.begin_time, add_bell.end_time, add_bell.change_time::date);
+    end if;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_schedule(week_day1 week_day, is_odd_week1 boolean, last_change_date1 date)
+    RETURNS table
+            (
+                teacher_id integer,
+                room_id    integer,
+                bell_order integer,
+                subject_id integer
+            )
+AS
+$$
+begin
+    return query SELECT teacher_id, room_id, bell_order, subject_id
+                 FROM schedule_history outer_h
+                 WHERE subject_id IS NOT NULL
+                   AND change_date <= last_change_date1
+                   AND outer_h.week_day = week_day1
+                   AND (is_odd_week IS NULL OR is_odd_week = is_odd_week1 OR is_odd_week1 IS NULL)
+                   AND change_date = (SELECT MAX(change_date)
+                                      FROM schedule_history inner_h
+                                      WHERE change_date <= last_change_date1
+                                          AND week_day1 = outer_h.week_day
+                                          AND is_odd_week IS NULL
+                                         OR is_odd_week = is_odd_week1
+                                         OR is_odd_week1 IS NULL
+                                          AND inner_h.teacher_id = outer_h.teacher_id
+                                          AND inner_h.bell_order = outer_h.bell_order);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION add_to_schedule(teacher_id integer, room_id integer, bell_order integer, week_day week_day,
+                                is_odd_week boolean, change_time timestamp = NOW())
+    RETURNS void AS
+$$
+declare
+    at_date date;
+begin
+    at_date := change_time::date;
+    if (get_week_day(at_date) == week_day
+        AND (is_odd_week IS NULL OR get_parity(at_date) = is_odd_week)
+        AND bell_begin_time(at_date, bell_order) <= change_time::time) then
+        INSERT INTO schedule_history (teacher_id, room_id, bell_order, week_day, is_odd_week, change_date)
+        VALUES (add_to_schedule.teacher_id, add_to_schedule.room_id, add_to_schedule.bell_order,
+                add_to_schedule.week_day, add_to_schedule.is_odd_week,
+                add_to_schedule.change_time::date + INTERVAL '1 day');
+    else
+        INSERT INTO schedule_history (teacher_id, room_id, bell_order, week_day, is_odd_week, change_date)
+        VALUES (add_to_schedule.teacher_id, add_to_schedule.room_id, add_to_schedule.bell_order,
+                add_to_schedule.week_day, add_to_schedule.is_odd_week,
+                add_to_schedule.change_time::date);
+    end if;
 end;
 $$ language plpgsql;
 
@@ -539,9 +634,9 @@ declare
     begin_time timestamp;
     end_time   timestamp;
 begin
-    for bell_order, begin_time, end_time in (SELECT get_lessons(NEW.change_time::date))
+    for bell_order, begin_time, end_time in (SELECT get_bells_schedule(NEW.change_date::date))
         loop
-            if (NOT (NEW.begin_time > end_time OR begin_time > NEW.end_time)) then
+            if (bell_order != NEW.bell_order AND NOT (NEW.begin_time > end_time OR begin_time > NEW.end_time)) then
                 return NULL;
             end if;
         end loop;
@@ -573,6 +668,32 @@ ALTER TABLE schedule_history
         CHECK (
             bell_begin_time(change_date, bell_order) IS NOT NULL
             );
+
+/*CREATE OR REPLACE FUNCTION schedule_history_insert_trigger()
+    RETURNS TRIGGER AS
+$$
+declare
+    i record;
+begin
+    for i in (SELECT * FROM get_schedule(NEW.change_date))
+        loop
+            if ((NEW.bell_order != i.bell_order
+                AND NEW.week_day == i.week_day
+                AND (NEW.is_odd_week == i.is_odd_week OR NEW.is_odd_week IS NULL OR i.is_odd_week IS NULL))
+                AND (NEW.room_id == i.room_id OR NEW.teacher_id == i.teacher_id)) then
+                return NULL;
+            end if;
+        end loop;
+    return NEW;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER schedule_history_non_intersect_trigger
+    BEFORE INSERT
+    ON schedule_history
+    FOR EACH ROW
+EXECUTE PROCEDURE schedule_history_insert_trigger();*/
 
 ALTER TABLE events
     ADD CONSTRAINT events_bell_exists_check
@@ -711,7 +832,7 @@ values ('Addition', 1, 20, 1),
        ('Words', 2, 30, 2);
 -- select * from themes;
 
-insert into bell_schedule_history (bell_order, begin_time, end_time, change_time)
+insert into bell_schedule_history (bell_order, begin_time, end_time, change_date)
 values (1, '08:00', '08:45', '2015-01-01'),
        (2, '09:00', '09:45', '2015-01-01'),
        (3, '09:55', '10:40', '2015-01-01'),
