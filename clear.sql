@@ -88,8 +88,15 @@ drop function if exists get_schedule(week_day, boolean, date) cascade;
 
 drop function if exists add_to_schedule(integer, integer, integer, week_day, boolean, timestamp) cascade;
 
+drop function if exists get_pupils_from_group(integer, timestamp) cascade;
+
+drop function if exists get_groups_from_event(integer) cascade;
+
 drop function if exists bell_schedule_history_insert_trigger() cascade;
 
 drop function if exists quarters_insert_trigger() cascade;
 
 drop function if exists holidays_insert_trigger() cascade;
+
+drop function if exists journal_insert_trigger() cascade;
+

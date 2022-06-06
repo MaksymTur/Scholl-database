@@ -260,10 +260,10 @@ CREATE TABLE journal
 
 CREATE TABLE groups_to_events
 (
-    "group" int REFERENCES groups NOT NULL,
-    event   int REFERENCES events NOT NULL,
+    group_id int REFERENCES groups NOT NULL,
+    event_id int REFERENCES events NOT NULL,
 
-    PRIMARY KEY ("group", event)
+    PRIMARY KEY (group_id, event_id)
 );
 
 CREATE TABLE groups_to_schedule
@@ -581,6 +581,36 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_pupils_from_group(group_id1 integer, at_time timestamp)
+    RETURNS table
+            (
+                pupil_id integer
+            )
+AS
+$$
+begin
+    return query (SELECT pupil_id
+                  FROM groups_history
+                  WHERE begin_time <= at_time
+                    AND end_time > at_time
+                    AND groups_history.group_id = group_id1);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_groups_from_event(event_id1 integer)
+    RETURNS table
+            (
+                group_id integer
+            )
+AS
+$$
+begin
+    return query (SELECT group_id
+                  FROM groups_to_events
+                  WHERE groups_to_events.event_id = event_id1);
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
@@ -795,6 +825,22 @@ ALTER TABLE class_teacher_history
         CHECK (
             is_working(teacher_id, change_time)
             );
+
+/*CREATE FUNCTION journal_insert_trigger()
+    RETURNS TRIGGER AS
+$$
+declare
+    i record;
+begin
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER journal_pupil_from_group_on_event
+    BEFORE INSERT
+    ON journal
+    FOR EACH ROW
+EXECUTE PROCEDURE journal_insert_trigger();*/
 
 --checkers and triggers block end
 --indexes block
