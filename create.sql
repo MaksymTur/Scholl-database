@@ -700,18 +700,17 @@ ALTER TABLE schedule_history
             bell_begin_time(change_date, bell_order) IS NOT NULL
             );
 
-/*CREATE OR REPLACE FUNCTION schedule_history_insert_trigger()
+CREATE OR REPLACE FUNCTION schedule_history_insert_trigger()
     RETURNS TRIGGER AS
 $$
 declare
     i record;
 begin
-    for i in (SELECT * FROM get_schedule(NEW.change_date))
+    for i in (SELECT * FROM get_schedule(NEW.week_day, NEW.is_odd_week, NEW.change_date))
         loop
-            if ((NEW.bell_order != i.bell_order
-                AND NEW.week_day == i.week_day
-                AND (NEW.is_odd_week == i.is_odd_week OR NEW.is_odd_week IS NULL OR i.is_odd_week IS NULL))
-                AND (NEW.room_id == i.room_id OR NEW.teacher_id == i.teacher_id)) then
+            if (NEW.bell_order != i.bell_order
+                AND NEW.room_id == i.room_id
+                AND NEW.teacher_id != i.teacher_id) then
                 return NULL;
             end if;
         end loop;
@@ -724,7 +723,7 @@ CREATE TRIGGER schedule_history_non_intersect_trigger
     BEFORE INSERT
     ON schedule_history
     FOR EACH ROW
-EXECUTE PROCEDURE schedule_history_insert_trigger();*/
+EXECUTE PROCEDURE schedule_history_insert_trigger();
 
 ALTER TABLE events
     ADD CONSTRAINT events_bell_exists_check
@@ -826,12 +825,27 @@ ALTER TABLE class_teacher_history
             is_working(teacher_id, change_time)
             );
 
-/*CREATE FUNCTION journal_insert_trigger()
+CREATE FUNCTION journal_insert_trigger()
     RETURNS TRIGGER AS
 $$
 declare
-    i record;
+    i         integer;
+    should_be boolean;
 begin
+    should_be := false;
+    for i in (SELECT get_groups_from_event(NEW.event_id))
+        loop
+            if (EXISTS(SELECT pupils.pupil_id
+                       FROM get_pupils_from_group(i, NOW()) pupils
+                       WHERE pupils.pupil_id = NEW.pupil_id)) then
+                should_be := true;
+            end if;
+        end loop;
+    if should_be = true then
+        return NEW;
+    else
+        return NULL;
+    end if;
 end;
 $$
     LANGUAGE PLPGSQL;
@@ -840,7 +854,7 @@ CREATE TRIGGER journal_pupil_from_group_on_event
     BEFORE INSERT
     ON journal
     FOR EACH ROW
-EXECUTE PROCEDURE journal_insert_trigger();*/
+EXECUTE PROCEDURE journal_insert_trigger();
 
 --checkers and triggers block end
 --indexes block
