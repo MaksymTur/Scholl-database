@@ -478,8 +478,8 @@ CREATE FUNCTION get_parity(at_date date)
     RETURNS boolean AS
 $$
 begin
-    return (extract(epoch from date_trunc('week', at_date)) -
-            extract(epoch from date_trunc('week', get_quarter_begin(at_date)))) / 604800 % 2 = 0;
+    return ((extract(epoch from date_trunc('week', at_date)) -
+             extract(epoch from date_trunc('week', get_quarter_begin(at_date)))) / 604800)::integer % 2 = 0;
 end;
 $$ language plpgsql;
 
