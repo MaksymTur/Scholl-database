@@ -291,7 +291,7 @@ begin
     elseif (a = 3) then
         return 'Wednesday';
     elseif (a = 4) then
-        return 'Tuesday';
+        return 'Thursday';
     elseif (a = 5) then
         return 'Friday';
     elseif (a = 6) then
@@ -494,19 +494,20 @@ CREATE FUNCTION get_schedule(at_date date)
 AS
 $$
 begin
-    return query SELECT teacher_id, room_id, bell_order, subject_id
+    return query SELECT outer_h.teacher_id, outer_h.room_id, outer_h.bell_order, outer_h.subject_id
                  FROM schedule_history outer_h
-                 WHERE subject_id IS NOT NULL
-                   AND change_date <= at_date
-                   AND week_day = get_week_day(at_date)
-                   AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
-                   AND change_date = (SELECT MAX(change_date)
-                                      FROM schedule_history inner_h
-                                      WHERE change_date <= at_date
-                                        AND week_day = at_date::week_day
-                                        AND (is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
-                                        AND inner_h.teacher_id = outer_h.teacher_id
-                                        AND inner_h.bell_order = outer_h.bell_order);
+                 WHERE outer_h.subject_id IS NOT NULL
+                   AND outer_h.change_date <= at_date
+                   AND outer_h.week_day = get_week_day(at_date)
+                   AND (outer_h.is_odd_week IS NULL OR is_odd_week = get_parity(at_date))
+                   AND outer_h.change_date = (SELECT MAX(inner_h.change_date)
+                                              FROM schedule_history inner_h
+                                              WHERE inner_h.change_date <= at_date
+                                                AND inner_h.week_day = outer_h.week_day
+                                                AND (inner_h.is_odd_week IS NULL OR
+                                                     inner_h.is_odd_week = get_parity(at_date))
+                                                AND inner_h.teacher_id = outer_h.teacher_id
+                                                AND inner_h.bell_order = outer_h.bell_order);
 end;
 $$ language plpgsql;
 
@@ -896,12 +897,12 @@ values (1, 3, '2021-08-09 07:00:00', default),
        (3, 4, '2021-08-31 15:00:00', default);
 --  select * from employees_history;
 
-insert into schedule_history (teacher_id, room_id, bell_order, week_day, is_odd_week)
-values (2, 2, 1, 'Thursday', True),
-       (2, 2, 1, 'Thursday', False),
-       (1, 4, 1, 'Thursday', False),
-       (3, 2, 2, 'Thursday', True),
-       (2, 3, 2, 'Thursday', True);
+insert into schedule_history (teacher_id, room_id, bell_order, subject_id, week_day, is_odd_week)
+values (2, 2, 1, 1, 'Thursday', True),
+       (2, 2, 1, 2, 'Thursday', False),
+       (1, 4, 1, 1, 'Thursday', False),
+       (3, 2, 2, 2, 'Thursday', True),
+       (2, 3, 2, 2, 'Thursday', True);
 --  select * from schedule_history;
 
 insert into events (room_id, teacher_id, theme_id, event_bell)
