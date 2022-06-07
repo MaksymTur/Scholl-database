@@ -573,11 +573,11 @@ CREATE FUNCTION get_pupils_from_group(group_id1 integer, at_time timestamp)
 AS
 $$
 begin
-    return query (SELECT pupil_id
-                  FROM groups_history
+    return query (SELECT h.pupil_id
+                  FROM groups_history h
                   WHERE begin_time <= at_time
                     AND end_time > at_time
-                    AND groups_history.group_id = group_id1);
+                    AND h.group_id = group_id1);
 end;
 $$ language plpgsql;
 
@@ -895,6 +895,7 @@ begin
             WHERE pupil_id = i
               AND journal.event_id = OLD.event_id;
         end loop;
+    return OLD;
 end;
 $$
     LANGUAGE PLPGSQL;
