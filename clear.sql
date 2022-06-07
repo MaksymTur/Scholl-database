@@ -108,7 +108,13 @@ drop function if exists get_mark_from_theme(integer, integer) cascade;
 
 drop function if exists get_group_class(integer) cascade;
 
+drop function if exists get_subject_of_theme(integer) cascade;
+
+drop function if exists get_mandatory(integer) cascade;
+
 drop function if exists bell_schedule_history_insert_trigger() cascade;
+
+drop function if exists groups_mandatory_check_f(integer, integer) cascade;
 
 drop function if exists groups_history_insert_trigger() cascade;
 
@@ -122,5 +128,13 @@ drop function if exists class_history_insert_delete_from_groups_trigger() cascad
 
 drop function if exists skips_insert_trigger() cascade;
 
+drop function if exists groups_to_events_same_subject_check_f(integer, integer) cascade;
+
+drop function if exists groups_to_events_same_class_check_f(integer, integer) cascade;
+
 drop function if exists groups_to_events_delete_trigger() cascade;
+
+drop function if exists groups_to_schedule_same_subject_check_f(integer, integer) cascade;
+
+drop function if exists groups_to_schedule_same_class_check_f(integer, integer) cascade;
 
