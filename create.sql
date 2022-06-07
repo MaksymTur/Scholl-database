@@ -88,8 +88,9 @@ CREATE TABLE groups_history
     group_id   int REFERENCES "groups" NOT NULL,
     begin_time timestamp DEFAULT now() NOT NULL,
     end_time   timestamp DEFAULT NULL,
+    change_id  serial,
 
-    PRIMARY KEY (pupil_id, group_id, begin_time)
+    PRIMARY KEY (change_id)
 );
 
 CREATE TABLE employees
@@ -152,7 +153,7 @@ CREATE TABLE events
 CREATE TABLE mark_types
 (
     type_name varchar(10) NOT NULL,
-    type_id   integer,
+    type_id   serial,
 
     PRIMARY KEY (type_id)
 );
@@ -592,6 +593,46 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_groups_of_pupil(pupil_id1 integer, at_time timestamp)
+    RETURNS table
+            (
+                group_id integer
+            )
+AS
+$$
+begin
+    return query (SELECT groups_history.group_id
+                  FROM groups_history
+                  WHERE begin_time <= at_time
+                    AND end_time > at_time
+                    AND groups_history.pupil_id = pupil_id1);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION delete_from_group(pupil_id integer, group_id integer, deletion_time timestamp)
+    RETURNS void
+AS
+$$
+declare
+    to_del integer;
+begin
+    if (NOT EXISTS(SELECT *
+                   FROM get_groups_of_pupil(pupil_id, deletion_time) sl
+                   WHERE sl.group_id = delete_from_group.group_id)) then
+        return;
+    end if;
+    to_del := (SELECT change_id
+               FROM groups_history
+               WHERE groups_history.pupil_id = delete_from_group.pupil_id
+                 AND groups_history.group_id = delete_from_group.group_id
+               ORDER BY begin_time DESC
+               LIMIT 1);
+    UPDATE groups_history
+    SET end_time = deletion_time
+    WHERE change_id = to_del;
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
@@ -893,31 +934,23 @@ CREATE INDEX
     ON type_weights_history (change_date);
 
 CREATE INDEX
-    ON quarters(begin_date, end_date);
+    ON quarters (begin_date, end_date);
 
 CREATE INDEX
-    ON holidays(begin_date, end_date);
+    ON holidays (begin_date, end_date);
 
 CREATE INDEX
-    ON salary_history(change_time);
+    ON salary_history (change_time);
 
 CREATE INDEX
-    ON class_history(change_time);
+    ON class_history (change_time);
 
 CREATE INDEX
-    ON class_teacher_history(change_time);
+    ON class_teacher_history (change_time);
 
 --indexes block end
 
 --data final block
-
-/*\i fillUtils/quarterholidaybells.sql
-\i fillUtils/marksBlock.sql
-\i fillUtils/pupilsInsert.sql
-\i fillUtils/subjectsBlock.sql
-\i fillUtils/classesInsert.sql
-\i fillUtils/employeesBlock.sql
-\i fillUtils/eventsBlock.sql*/
 
 insert into quarters (begin_date, end_date)
 values
@@ -941,7 +974,7 @@ values
 (4, '10:55', '11:40', '2015-01-01'),
 (5, '12:00', '12:45', '2015-01-01'),
 (6, '13:05', '13:50', '2015-01-01'),
-(7, '14.05', '14.50', '2015-01-01');
+(7, '14:05', '14:50', '2015-01-01');
 
 insert into mark_types (type_name)
 values
@@ -2198,216 +2231,4 @@ values (3, 2, 1, 1),
 
 --data final block end
 
-
---data examples block
-/*
-        insert into rooms (title, room_type, seats)
-values ('101a', 'gym', 40),
-       ('102a', 'basic', 8),
-       ('102b', 'basic', 8),
-       ('102c', 'basic', 8);
--- select * from rooms;
-
-insert into subjects (title)
-values ('Mathematics'),
-       ('English');
---  select * from subjects;
-
-insert into pupils (date_of_birth, first_name, last_name)
-values ('2015-01-23', 'Ernie', 'Webber'),
-       ('2015-02-15', 'Ismail', 'Ferrell'),
-       ('2015-04-25', 'Salahuddin', 'Fellows'),
-       ('2015-05-04', 'Corban', 'Hirst'),
-       ('2015-05-10', 'Fraya', 'Greene'),
-       ('2015-05-15', 'Ida', 'Robins'),
-       ('2015-05-21', 'Timur', 'Blackwell'),
-       ('2015-07-23', 'Ellise', 'Knox');
--- select * from pupils;
-
-insert into themes (title, subject_id, lessons_length, theme_order)
-values ('Addition', 1, 20, 1),
-       ('Subtraction', 1, 20, 2),
-       ('Alphabet', 2, 10, 1),
-       ('Words', 2, 30, 2);
--- select * from themes;
-
-insert into bell_schedule_history (bell_order, begin_time, end_time, change_date)
-values (1, '08:00', '08:45', '2015-01-01'),
-       (2, '09:00', '09:45', '2015-01-01'),
-       (3, '09:55', '10:40', '2015-01-01'),
-       (4, '10:55', '11:40', '2015-01-01'),
-       (5, '12:00', '12:45', '2015-01-01'),
-       (6, '13:05', '13:50', '2015-01-01'),
-       (7, '14.05', '14.50', '2015-01-01');
---  select * from bell_schedule_history;
-
-insert into groups (title, subject_id)
-values ('A1 Math group', 1),
-       ('A1 English first group', 2),
-       ('A1 English second group', 2),
-       ('B1 English', 2);
---  select * from groups;
-
---data bug!!!
-/*
-insert into excuses (pupil_id, reason, begin_date, begin_bell, end_date, end_bell)
-values (1, 'illness', '2015-05-27', 1, '2015-05-27', 6);
---  select * from excuses;
-*/
-
-insert into groups_history (pupil_id, group_id)
-values (1, 1),
-       (1, 2),
-       (2, 1),
-       (2, 2),
-       (3, 1),
-       (3, 2),
-       (4, 1),
-       (4, 2),
-       (5, 1),
-       (5, 3),
-       (6, 1),
-       (6, 3),
-       (7, 1),
-       (7, 3),
-       (8, 4);
---  select * from groups_history;
-
-insert into employees (first_name, last_name)
-values ('Maksym', 'Tur'),
-       ('Andrii', 'Kovryhin'),
-       ('Aliaksandr', 'Skvarniuk');
---  select * from employees;
-
-insert into posts (title)
-values ('Director'),
-       ('Head teacher'),
-       ('Accountant'),
-       ('classroom teacher');
---  select * from posts;
-
-insert into employees_history (employee_id, post_id, begin_time, end_time)
-values (1, 3, '2021-08-09 07:00:00', default),
-       (2, 1, '2021-08-09 07:01:00', default),
-       (3, 2, '2021-08-09 07:02:00', '2021-08-15 07:02:00'),
-       (3, 2, '2021-08-15 07:02:00', default),
-       (3, 2, '2021-08-22 07:02:00', default),
-       (2, 4, '2021-08-31 15:00:00', default),
-       (3, 4, '2021-08-31 15:00:00', default);
---  select * from employees_history;
-
-insert into schedule_history (teacher_id, room_id, bell_order, subject_id, week_day, is_odd_week)
-values (2, 2, 1, 1, 'Thursday', True),
-       (2, 2, 1, 2, 'Thursday', False),
-       (1, 4, 1, 1, 'Thursday', False),
-       (3, 2, 2, 2, 'Thursday', True),
-       (2, 3, 2, 2, 'Thursday', True);
---  select * from schedule_history;
-
-insert into events (room_id, teacher_id, theme_id, event_bell)
-values (3, 2, 1, 1),
-       (2, 3, 3, 2),
-       (3, 1, 3, 2);
---  select * from events;
-
-insert into mark_types(type_name, type_id)
-values ('exam', 1),
-       ('report', 2),
-       ('activity', 3);
-
---data bug(violates check constraint "marks_pupil_was_at_lecture_check")
-/*
-insert into marks (pupil_id, event_id, mark, type_id)
-values (2, 1, 10, 1),
-       (2, 2, 2, 2),
-       (3, 1, 4, 3),
-       (3, 2, 9, 2),
-       (4, 1, 5, 1),
-       (4, 2, 8, 3),
-       (5, 1, 7, 2),
-       (5, 3, 10, 1),
-       (6, 1, 9, 1),
-       (6, 3, 6, 2),
-       (7, 1, 10, 3),
-       (7, 3, 5, 1);
---    select * from marks;
- */
-
-insert into holidays (begin_date, end_date)
-values ('2021-10-31', '2021-11-07'),
-       ('2021-12-25', '2022-01-09'),
-       ('2022-04-27', '2022-05-3'),
-       ('2022-06-01', '2022-08-31');
--- select * from holidays;
-
-insert into quarters (begin_date, end_date)
-values ('2021-09-01', '2021-10-30'),
-       ('2021-11-08', '2021-12-24'),
-       ('2022-01-10', '2022-04-26'),
-       ('2022-04-04', '2022-05-31');
---  select * from quarters;
-
-insert into salary_history (employee_id, salary, change_time)
-values (1, 35, '2021-08-31 12:00:00'),
-       (2, 25, '2021-08-31 12:00:00'),
-       (3, 20, '2021-08-31 12:00:00');
---  select * from salary_history;
-
-insert into classes (title, study_year)
-values ('A', 1),
-       ('B', 1);
---  select * from classes;
-
-insert into class_history (pupil_id, class_id, change_time)
-values (1, 1, '2021-08-31 07:02:00'),
-       (2, 1, '2021-08-31 07:02:00'),
-       (3, 1, '2021-08-31 07:02:00'),
-       (4, 1, '2021-08-31 07:02:00'),
-       (5, 1, '2021-08-31 07:02:00'),
-       (6, 1, '2021-08-31 07:02:01'),
-       (7, 1, '2021-08-31 07:02:01'),
-       (8, 2, '2021-08-31 07:02:01');
--- select * from class_history;
-
-insert into class_teacher_history (class_id, teacher_id, change_time)
-values (1, 2, '2021-08-31 09:00:00'),
-       (2, 3, '2021-08-31 09:00:00');
--- select * from class_teacher_history;
-
---data bug(violates foreign key constraint "journal_event_id_fkey")
-/*
-insert into journal (pupil_id, event_id)
-values (2, 1),
-       (2, 2),
-       (3, 1),
-       (3, 2),
-       (4, 1),
-       (4, 2),
-       (5, 1),
-       (5, 3),
-       (6, 1),
-       (6, 3),
-       (7, 1),
-       (7, 3);
--- select * from journal;
-*/
-
---data bug
-/*
-insert into groups_to_events ("group", event)
-values (1, 1),
-       (2, 2),
-       (3, 3);
--- select * from groups_to_events;
- */
-
-insert into groups_to_schedule (group_id, event_in_schedule_id)
-values (1, 1),
-       (2, 4),
-       (3, 5),
-       (4, 3);
---  select * from groups_to_schedule;
-
-*/
---data examples block end
 

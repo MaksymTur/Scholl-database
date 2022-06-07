@@ -92,6 +92,10 @@ drop function if exists get_pupils_from_group(integer, timestamp) cascade;
 
 drop function if exists get_groups_from_event(integer) cascade;
 
+drop function if exists get_groups_of_pupil(integer, timestamp) cascade;
+
+drop function if exists delete_from_group(integer, integer, timestamp) cascade;
+
 drop function if exists bell_schedule_history_insert_trigger() cascade;
 
 drop function if exists schedule_history_insert_trigger() cascade;
