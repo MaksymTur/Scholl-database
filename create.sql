@@ -65,8 +65,8 @@ CREATE TABLE excuses
 CREATE TABLE bell_schedule_history
 (
     bell_order  int,
-    begin_time  time               NOT NULL,
-    end_time    time               NOT NULL,
+    begin_time  time,
+    end_time    time,
     change_date date DEFAULT now() NOT NULL,
     change_id   serial,
 
