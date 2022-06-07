@@ -72,10 +72,20 @@ CREATE TABLE bell_schedule_history
     PRIMARY KEY (change_id)
 );
 
+
+CREATE TABLE classes
+(
+    title      varchar(10) NOT NULL,
+    study_year int         NOT NULL,
+    class_id   serial,
+
+    PRIMARY KEY (class_id)
+);
+
 CREATE TABLE "groups"
 (
-    title      varchar(40)                 NOT NULL,
-    subject_id integer REFERENCES subjects NOT NULL,
+    title      varchar(40)                NOT NULL,
+    class_id   integer REFERENCES classes NOT NULL,
     group_id   serial,
 
     PRIMARY KEY (group_id)
@@ -204,15 +214,6 @@ CREATE TABLE salary_history
     PRIMARY KEY (employee_id, change_time)
 );
 
-CREATE TABLE classes
-(
-    title      varchar(10) NOT NULL,
-    study_year int         NOT NULL,
-    class_id   serial,
-
-    PRIMARY KEY (class_id)
-);
-
 CREATE TABLE class_history
 (
     pupil_id    int REFERENCES pupils   NOT NULL,
@@ -231,7 +232,7 @@ CREATE TABLE class_teacher_history
     PRIMARY KEY (class_id, teacher_id, change_time)
 );
 
-CREATE TABLE journal
+CREATE TABLE skips
 (
     pupil_id int REFERENCES pupils NOT NULL,
     event_id int REFERENCES events NOT NULL,
@@ -382,10 +383,10 @@ CREATE FUNCTION was_at_lecture(pupil_id int, event_id int)
     RETURNS boolean AS
 $$
 begin
-    return EXISTS((SELECT journal.pupil_id
-                   FROM journal
-                   WHERE journal.pupil_id = was_at_lecture.pupil_id
-                     AND journal.event_id = was_at_lecture.event_id));
+    return (NOT EXISTS((SELECT skips.pupil_id
+                   FROM skips
+                   WHERE skips.pupil_id = was_at_lecture.pupil_id
+                     AND skips.event_id = was_at_lecture.event_id)));
 end
 $$ language plpgsql;
 
@@ -399,6 +400,19 @@ begin
               AND class_history.change_time <= is_studying.at_time
             ORDER BY change_time DESC
             LIMIT 1) IS NOT NULL;
+end
+$$ language plpgsql;
+
+CREATE FUNCTION get_class(pupil_id int, at_time timestamp)
+    RETURNS integer AS
+$$
+begin
+    return (SELECT class_history.class_id
+            FROM class_history
+            WHERE class_history.pupil_id = get_class.pupil_id
+              AND class_history.change_time <= get_class.at_time
+            ORDER BY change_time DESC
+            LIMIT 1);
 end
 $$ language plpgsql;
 
@@ -646,7 +660,9 @@ begin
     a := 0;
     b := 0;
     for i in (SELECT *
-              FROM marks NATURAL JOIN events NATURAL JOIN type_weights_history
+              FROM marks
+                       NATURAL JOIN events
+                       NATURAL JOIN type_weights_history
               WHERE events.theme_id = get_mark_from_theme.theme_id
                 AND marks.pupil_id = get_mark_from_theme.pupil_id)
         loop
@@ -657,6 +673,15 @@ begin
         return 1;
     end if;
     return a / b;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_group_class(group_id integer)
+    RETURNS integer
+AS
+$$
+begin
+    return (SELECT class_id FROM "groups" WHERE get_group_class.group_id = groups.group_id);
 end;
 $$ language plpgsql;
 
@@ -736,6 +761,27 @@ ALTER TABLE groups_history
         CHECK (
             begin_time < end_time
             );
+
+CREATE FUNCTION groups_history_insert_trigger()
+    RETURNS TRIGGER AS
+$$
+begin
+    if (get_group_class(NEW.group_id) IS NULL) then
+        return NEW;
+    end if;
+    if(get_group_class(NEW.group_id) != get_class(NEW.pupil_id, NEW.begin_time)) then
+        raise exception 'Can not add pupil to group not of his class.';
+    end if;
+    return NEW;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER groups_history_appropriate_class_of_pupil
+    BEFORE INSERT
+    ON groups_history
+    FOR EACH ROW
+EXECUTE PROCEDURE groups_history_insert_trigger();
 
 ALTER TABLE employees_history
     ADD CONSTRAINT employees_history_add_before_deletion_check
@@ -868,13 +914,36 @@ ALTER TABLE classes
             study_year > 0 AND study_year < 13
             );
 
+CREATE FUNCTION class_history_insert_delete_from_groups_trigger()
+    RETURNS TRIGGER AS
+$$
+declare
+    i integer;
+begin
+    for i in (SELECT group_id
+              FROM get_groups_of_pupil(NEW.pupil_id, change_time)
+              WHERE get_group_class(group_id) IS NOT NULL
+              AND get_group_class(group_id) != get_class(NEW.pupil_id, change_time))
+    loop
+        SELECT delete_from_group(NEW.pupil_id, i, NEW.change_time);
+    end loop;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+CREATE TRIGGER class_history_delete_from_not_that_class_groups
+    BEFORE INSERT
+    ON class_history
+    FOR EACH ROW
+EXECUTE PROCEDURE class_history_insert_delete_from_groups_trigger();
+
 ALTER TABLE class_teacher_history
     ADD CONSTRAINT class_teacher_history_class_teacher_only_at_work_time
         CHECK (
             is_working(teacher_id, change_time)
             );
 
-CREATE FUNCTION journal_insert_trigger()
+CREATE FUNCTION skips_insert_trigger()
     RETURNS TRIGGER AS
 $$
 declare
@@ -899,11 +968,11 @@ end;
 $$
     LANGUAGE PLPGSQL;
 
-CREATE TRIGGER journal_pupil_from_group_on_event
+CREATE TRIGGER skips_pupil_from_group_on_event
     BEFORE INSERT
-    ON journal
+    ON skips
     FOR EACH ROW
-EXECUTE PROCEDURE journal_insert_trigger();
+EXECUTE PROCEDURE skips_insert_trigger();
 
 CREATE FUNCTION groups_to_events_delete_trigger()
     RETURNS TRIGGER AS
@@ -916,9 +985,9 @@ begin
             (SELECT event_bell FROM events WHERE events.event_id = OLD.event_id))))
         loop
             DELETE
-            FROM journal
+            FROM skips
             WHERE pupil_id = i
-              AND journal.event_id = OLD.event_id;
+              AND skips.event_id = OLD.event_id;
         end loop;
     return OLD;
 end;
@@ -977,7 +1046,7 @@ CREATE INDEX
     ON class_teacher_history (change_time);
 
 --indexes block end
-
+/*
 --data final block
 
 insert into quarters (begin_date, end_date)

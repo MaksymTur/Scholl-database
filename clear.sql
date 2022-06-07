@@ -24,9 +24,7 @@ drop table if exists class_history cascade;
 
 drop table if exists class_teacher_history cascade;
 
-drop table if exists classes cascade;
-
-drop table if exists journal cascade;
+drop table if exists skips cascade;
 
 drop table if exists pupils cascade;
 
@@ -39,6 +37,8 @@ drop table if exists themes cascade;
 drop table if exists groups_to_schedule cascade;
 
 drop table if exists groups cascade;
+
+drop table if exists classes cascade;
 
 drop table if exists schedule_history cascade;
 
@@ -70,6 +70,8 @@ drop function if exists was_at_lecture(integer, integer) cascade;
 
 drop function if exists is_studying(integer, timestamp) cascade;
 
+drop function if exists get_class(integer, timestamp) cascade;
+
 drop function if exists is_working(integer, timestamp) cascade;
 
 drop function if exists get_bells_schedule(date) cascade;
@@ -98,7 +100,11 @@ drop function if exists delete_from_group(integer, integer, timestamp) cascade;
 
 drop function if exists get_mark_from_theme(integer, integer) cascade;
 
+drop function if exists get_group_class(integer) cascade;
+
 drop function if exists bell_schedule_history_insert_trigger() cascade;
+
+drop function if exists groups_history_insert_trigger() cascade;
 
 drop function if exists schedule_history_insert_trigger() cascade;
 
@@ -106,6 +112,9 @@ drop function if exists quarters_insert_trigger() cascade;
 
 drop function if exists holidays_insert_trigger() cascade;
 
-drop function if exists journal_insert_trigger() cascade;
+drop function if exists class_history_insert_delete_from_groups_trigger() cascade;
+
+drop function if exists skips_insert_trigger() cascade;
 
 drop function if exists groups_to_events_delete_trigger() cascade;
+
