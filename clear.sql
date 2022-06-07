@@ -38,17 +38,19 @@ drop table if exists groups_to_schedule cascade;
 
 drop table if exists groups cascade;
 
-drop table if exists classes cascade;
-
 drop table if exists schedule_history cascade;
 
 drop type if exists week_day cascade;
 
 drop table if exists rooms cascade;
 
+drop table if exists employees cascade;
+
+drop table if exists subject_to_class_certificate cascade;
+
 drop table if exists subjects cascade;
 
-drop table if exists employees cascade;
+drop table if exists classes cascade;
 
 drop function if exists get_week_day(date) cascade;
 

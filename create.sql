@@ -20,6 +20,7 @@ CREATE TABLE subjects
 (
     title      varchar(20) NOT NULL,
     subject_id serial,
+    mandatory  boolean     NOT NULL,
 
     PRIMARY KEY (subject_id)
 );
@@ -84,8 +85,9 @@ CREATE TABLE classes
 
 CREATE TABLE "groups"
 (
-    title      varchar(40)                NOT NULL,
-    class_id   integer REFERENCES classes NOT NULL,
+    title      varchar(40) NOT NULL,
+    class_id   integer REFERENCES classes,
+    subject_id integer REFERENCES subjects,
     group_id   serial,
 
     PRIMARY KEY (group_id)
@@ -135,9 +137,10 @@ CREATE TABLE schedule_history
     teacher_id          integer REFERENCES employees NOT NULL,
     room_id             integer REFERENCES rooms,
     subject_id          integer REFERENCES subjects,
-    bell_order          integer,
-    "week_day"          week_day                     NOT NULL,
+    class_id            integer REFERENCES classes,
     is_odd_week         bool,
+    "week_day"          week_day                     NOT NULL,
+    bell_order          integer,
     change_date         date DEFAULT now()           NOT NULL,
     schedule_history_id serial,
 
@@ -150,6 +153,7 @@ CREATE TABLE events
     room_id    integer REFERENCES rooms,
     teacher_id integer REFERENCES employees NOT NULL,
     theme_id   integer REFERENCES themes,
+    class_id   integer REFERENCES classes,
     event_date date DEFAULT now()           NOT NULL,
     event_bell int                          NOT NULL,
     event_id   serial,
@@ -254,6 +258,15 @@ CREATE TABLE groups_to_schedule
     event_in_schedule_id int REFERENCES schedule_history NOT NULL,
 
     PRIMARY KEY (group_id, event_in_schedule_id)
+);
+
+
+CREATE TABLE subject_to_class_certificate
+(
+    class_id   int REFERENCES classes  NOT NULL,
+    subject_id int REFERENCES subjects NOT NULL,
+
+    PRIMARY KEY (class_id, subject_id)
 );
 
 --table block end
@@ -384,9 +397,9 @@ CREATE FUNCTION was_at_lecture(pupil_id int, event_id int)
 $$
 begin
     return (NOT EXISTS((SELECT skips.pupil_id
-                   FROM skips
-                   WHERE skips.pupil_id = was_at_lecture.pupil_id
-                     AND skips.event_id = was_at_lecture.event_id)));
+                        FROM skips
+                        WHERE skips.pupil_id = was_at_lecture.pupil_id
+                          AND skips.event_id = was_at_lecture.event_id)));
 end
 $$ language plpgsql;
 
@@ -769,7 +782,7 @@ begin
     if (get_group_class(NEW.group_id) IS NULL) then
         return NEW;
     end if;
-    if(get_group_class(NEW.group_id) != get_class(NEW.pupil_id, NEW.begin_time)) then
+    if (get_group_class(NEW.group_id) != get_class(NEW.pupil_id, NEW.begin_time)) then
         raise exception 'Can not add pupil to group not of his class.';
     end if;
     return NEW;
@@ -923,10 +936,10 @@ begin
     for i in (SELECT group_id
               FROM get_groups_of_pupil(NEW.pupil_id, change_time)
               WHERE get_group_class(group_id) IS NOT NULL
-              AND get_group_class(group_id) != get_class(NEW.pupil_id, change_time))
-    loop
-        SELECT delete_from_group(NEW.pupil_id, i, NEW.change_time);
-    end loop;
+                AND get_group_class(group_id) != get_class(NEW.pupil_id, change_time))
+        loop
+            SELECT delete_from_group(NEW.pupil_id, i, NEW.change_time);
+        end loop;
 end;
 $$
     LANGUAGE PLPGSQL;
