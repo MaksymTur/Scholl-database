@@ -41,7 +41,6 @@ CREATE TABLE themes
     subject_id     int REFERENCES subjects NOT NULL,
     lessons_length integer                 NOT NULL,
     theme_order    integer                 NOT NULL,
-
     theme_id       serial,
 
     UNIQUE (title, subject_id),
@@ -632,6 +631,32 @@ begin
     UPDATE groups_history
     SET end_time = deletion_time
     WHERE change_id = to_del;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_mark_from_theme(pupil_id integer, theme_id integer)
+    RETURNS numeric(5, 3)
+AS
+$$
+declare
+    i record;
+    a numeric(5, 3);
+    b numeric(5, 3);
+begin
+    a := 0;
+    b := 0;
+    for i in (SELECT *
+              FROM marks NATURAL JOIN events NATURAL JOIN type_weights_history
+              WHERE events.theme_id = get_mark_from_theme.theme_id
+                AND marks.pupil_id = get_mark_from_theme.pupil_id)
+        loop
+            a := a + i.weight * i.mark;
+            b := b + i.weight;
+        end loop;
+    if b = 0 then
+        return 1;
+    end if;
+    return a / b;
 end;
 $$ language plpgsql;
 

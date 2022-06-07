@@ -96,6 +96,8 @@ drop function if exists get_groups_of_pupil(integer, timestamp) cascade;
 
 drop function if exists delete_from_group(integer, integer, timestamp) cascade;
 
+drop function if exists get_mark_from_theme(integer, integer) cascade;
+
 drop function if exists bell_schedule_history_insert_trigger() cascade;
 
 drop function if exists schedule_history_insert_trigger() cascade;
@@ -107,4 +109,3 @@ drop function if exists holidays_insert_trigger() cascade;
 drop function if exists journal_insert_trigger() cascade;
 
 drop function if exists groups_to_events_delete_trigger() cascade;
-
