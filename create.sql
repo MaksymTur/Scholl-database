@@ -714,6 +714,26 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_subject_of_theme(theme_id integer)
+    RETURNS integer
+AS
+$$
+begin
+    return (SELECT subject_id FROM themes WHERE themes.theme_id = get_subject_of_theme.theme_id);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_mandatory(subject_id integer)
+    RETURNS boolean
+AS
+$$
+begin
+    return (SELECT mandatory
+                 FROM subjects
+                 WHERE subjects.subject_id = get_mandatory.subject_id);
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
@@ -770,7 +790,8 @@ declare
 begin
     for bell_order, begin_time, end_time in (SELECT * FROM get_bells_schedule(NEW.change_date::date))
         loop
-            if (bell_order != NEW.bell_order AND NOT (NEW.begin_time > end_time::time OR begin_time::time > NEW.end_time)) then
+            if (bell_order != NEW.bell_order AND
+                NOT (NEW.begin_time > end_time::time OR begin_time::time > NEW.end_time)) then
                 return NULL;
             end if;
         end loop;
@@ -784,6 +805,28 @@ CREATE TRIGGER bell_schedule_history_non_intersect_trigger
     ON bell_schedule_history
     FOR EACH ROW
 EXECUTE PROCEDURE bell_schedule_history_insert_trigger();
+
+CREATE FUNCTION groups_mandatory_check_f(class_id integer, subject_id integer)
+    RETURNS boolean AS
+$$
+begin
+    return (subject_id IS NULL
+                OR (SELECT mandatory
+                    FROM subjects
+                    WHERE subjects.subject_id = groups_mandatory_check_f.subject_id) = False
+                OR ((SELECT mandatory
+                     FROM subjects
+                     WHERE subjects.subject_id = groups_mandatory_check_f.subject_id) = True
+                AND class_id IS NOT NULL));
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+ALTER TABLE "groups"
+    ADD CONSTRAINT groups_mandatory_check
+        CHECK (  
+               groups_mandatory_check_f(class_id, subject_id)
+            );
 
 ALTER TABLE groups_history
     ADD CONSTRAINT groups_history_add_before_deletion_check
@@ -1003,6 +1046,52 @@ CREATE TRIGGER skips_pupil_from_group_on_event
     FOR EACH ROW
 EXECUTE PROCEDURE skips_insert_trigger();
 
+CREATE FUNCTION groups_to_events_same_subject_check_f(group_id integer, event_id integer)
+    RETURNS boolean AS
+$$
+begin
+    return ((get_subject_of_theme((SELECT theme_id
+                                    FROM events
+                                    WHERE events.event_id = groups_to_events_same_subject_check_f.event_id)) =
+              (SELECT subject_id
+               FROM "groups"
+               WHERE groups.group_id = groups_to_events_same_subject_check_f.group_id))
+                OR (SELECT subject_id
+                    FROM "groups"
+                    WHERE groups.group_id = groups_to_events_same_subject_check_f.group_id) IS NULL);
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+ALTER TABLE groups_to_events
+    ADD CONSTRAINT groups_to_events_same_subject_check
+        CHECK (
+                groups_to_events_same_subject_check_f(group_id, event_id)
+            );
+
+CREATE FUNCTION groups_to_events_same_class_check_f(group_id integer, event_id integer)
+    RETURNS boolean AS
+$$
+begin
+    return (SELECT class_id
+                 FROM events
+                 WHERE events.event_id = groups_to_events_same_class_check_f.event_id) IS NULL
+                OR (SELECT class_id
+                    FROM events
+                    WHERE events.event_id = groups_to_events_same_class_check_f.event_id) =
+                   (SELECT class_id
+                    FROM "groups"
+                    WHERE groups.group_id = groups_to_events_same_class_check_f.group_id);
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+ALTER TABLE groups_to_events
+    ADD CONSTRAINT groups_to_events_same_class_check
+        CHECK (
+                groups_to_events_same_class_check_f(group_id, event_id)
+            );
+
 CREATE FUNCTION groups_to_events_delete_trigger()
     RETURNS TRIGGER AS
 $$
@@ -1023,11 +1112,65 @@ end;
 $$
     LANGUAGE PLPGSQL;
 
+ALTER TABLE subject_to_class_certificate
+    ADD CONSTRAINT classes_normal_study_year_check
+        CHECK (
+                get_mandatory(subject_id) = True
+            );
+
 CREATE TRIGGER groups_to_events_delete_from_journal_on_delete
     BEFORE INSERT
     ON groups_to_events
     FOR EACH ROW
 EXECUTE PROCEDURE groups_to_events_delete_trigger();
+
+CREATE FUNCTION groups_to_schedule_same_subject_check_f(group_id integer, event_in_schedule_id integer)
+    RETURNS boolean AS
+$$
+begin
+    return ((SELECT subject_id
+                  FROM schedule_history
+                  WHERE schedule_history.schedule_history_id = groups_to_schedule_same_subject_check_f.event_in_schedule_id) =
+                 (SELECT subject_id
+                  FROM "groups"
+                  WHERE groups.group_id = groups_to_schedule_same_subject_check_f.group_id))
+                OR
+                (SELECT subject_id
+                 FROM "groups"
+                 WHERE groups.group_id = groups_to_schedule_same_subject_check_f.group_id) IS NULL;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+ALTER TABLE groups_to_schedule
+    ADD CONSTRAINT groups_to_schedule_same_subject_check
+        CHECK (
+                groups_to_schedule_same_subject_check_f(group_id, event_in_schedule_id)
+         );
+
+CREATE FUNCTION groups_to_schedule_same_class_check_f(group_id integer, event_in_schedule_id integer)
+    RETURNS boolean AS
+$$
+begin
+    return ((SELECT class_id
+                  FROM schedule_history
+                  WHERE schedule_history.schedule_history_id = groups_to_schedule_same_class_check_f.event_in_schedule_id) =
+                 (SELECT class_id
+                  FROM "groups"
+                  WHERE groups.group_id = groups_to_schedule_same_class_check_f.group_id))
+                OR
+                (SELECT class_id
+                 FROM "groups"
+                 WHERE groups.group_id = groups_to_schedule_same_class_check_f.group_id) IS NULL;
+end;
+$$
+    LANGUAGE PLPGSQL;
+
+ALTER TABLE groups_to_schedule
+    ADD CONSTRAINT groups_to_schedule_same_class_check
+        CHECK (
+                groups_to_schedule_same_class_check_f(group_id, event_in_schedule_id)
+         );
 
 --checkers and triggers block end
 --indexes block
