@@ -68,6 +68,10 @@ drop function if exists bell_begin_time(date, integer) cascade;
 
 drop function if exists bell_end_time(date, integer) cascade;
 
+drop function if exists bell_begin_time(integer) cascade;
+
+drop function if exists bell_end_time(integer) cascade;
+
 drop function if exists was_at_lecture(integer, integer) cascade;
 
 drop function if exists is_studying(integer, timestamp) cascade;

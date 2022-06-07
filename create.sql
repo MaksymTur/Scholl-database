@@ -392,6 +392,22 @@ begin
 end
 $$ language plpgsql;
 
+CREATE FUNCTION bell_begin_time(bell_order int)
+    RETURNS timestamp AS
+$$
+begin
+    return bell_begin_time(now(), bell_order);
+end
+$$ language plpgsql;
+
+CREATE FUNCTION bell_end_time(bell_order int)
+    RETURNS timestamp AS
+$$
+begin
+    return bell_end_time(now(), bell_order);
+end
+$$ language plpgsql;
+
 CREATE FUNCTION was_at_lecture(pupil_id int, event_id int)
     RETURNS boolean AS
 $$
