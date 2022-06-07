@@ -734,6 +734,17 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_theme_of_event(event_id integer)
+    RETURNS boolean
+AS
+$$
+begin
+    return (SELECT get_theme_of_event(theme_id)
+                 FROM events
+                 WHERE events.event_id = get_theme_of_event.event_id);
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
@@ -910,6 +921,12 @@ ALTER TABLE marks
             mark >= 1 AND mark <= 12
             );
 
+ALTER TABLE marks
+    ADD CONSTRAINT marks_only_in_mandatory_subjects
+        CHECK (
+                get_mandatory(get_subject_of_theme(get_theme_of_event(event_id))) = True
+            );
+
 CREATE FUNCTION quarters_insert_trigger()
     RETURNS TRIGGER AS
 $$
@@ -1039,6 +1056,12 @@ begin
 end;
 $$
     LANGUAGE PLPGSQL;
+
+ALTER TABLE skips
+    ADD CONSTRAINT skips_only_at_mandatory_events
+        CHECK (
+                get_mandatory(get_subject_of_theme(get_theme_of_event(event_id))) = True
+            );
 
 CREATE TRIGGER skips_pupil_from_group_on_event
     BEFORE INSERT
