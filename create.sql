@@ -607,7 +607,7 @@ begin
 end;
 $$ language plpgsql;
 
-CREATE FUNCTION get_pupils_from_group(group_id1 integer, at_time timestamp)
+CREATE FUNCTION get_pupils_from_group(group_id1 integer, at_time timestamp DEFAULT now())
     RETURNS table
             (
                 pupil_id integer
@@ -618,7 +618,7 @@ begin
     return query (SELECT h.pupil_id
                   FROM groups_history h
                   WHERE begin_time <= at_time
-                    AND end_time > at_time
+                    AND (end_time > at_time OR end_time IS NULL)
                     AND h.group_id = group_id1);
 end;
 $$ language plpgsql;
