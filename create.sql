@@ -396,7 +396,7 @@ CREATE FUNCTION bell_begin_time(bell_order int)
     RETURNS timestamp AS
 $$
 begin
-    return bell_begin_time(now(), bell_order);
+    return bell_begin_time(now()::date, bell_order);
 end
 $$ language plpgsql;
 
@@ -404,7 +404,7 @@ CREATE FUNCTION bell_end_time(bell_order int)
     RETURNS timestamp AS
 $$
 begin
-    return bell_end_time(now(), bell_order);
+    return bell_end_time(now()::date, bell_order);
 end
 $$ language plpgsql;
 
