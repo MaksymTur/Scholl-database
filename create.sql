@@ -319,7 +319,9 @@ begin
     end if;
     UPDATE employees_history
     SET end_time = now()
-    WHERE end_time IS NULL;
+    WHERE end_time IS NULL
+      AND employee_id = employee
+      AND post_id = post;
     return true;
 end
 $$ language plpgsql;
