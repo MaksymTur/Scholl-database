@@ -44,4 +44,15 @@ public class MainMenuController {
         }
     }
 
+    @FXML
+    void goToOthers(ActionEvent event){
+        Stage stage = (Stage) ((Node)event.getSource()).getScene().getWindow();
+        try {
+            Parent root = new FXMLLoader(EventsMenuController.class.getResource("others-menu-view.fxml")).load();
+            stage.getScene().setRoot(root);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

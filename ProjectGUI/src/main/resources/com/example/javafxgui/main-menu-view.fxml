@@ -35,6 +35,11 @@
                   <Font size="24.0" />
                </font>
             </Button>
+            <Button alignment="CENTER" mnemonicParsing="false" onAction="#goToOthers" text="Others" GridPane.columnIndex="1">
+               <font>
+                  <Font size="24.0" />
+               </font>
+            </Button>
          </children>
       </GridPane>
    </children>
