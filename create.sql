@@ -372,7 +372,7 @@ begin
     end if;
     return bell_date + (SELECT begin_time
                         FROM bell_schedule_history
-                        WHERE change_date < bell_date
+                        WHERE change_date <= bell_date
                           AND bell_schedule_history.bell_order = bell_begin_time.bell_order
                         ORDER BY change_date DESC
                         LIMIT 1);
@@ -385,7 +385,7 @@ $$
 begin
     return bell_date + (SELECT end_time
                         FROM bell_schedule_history
-                        WHERE change_date < bell_date
+                        WHERE change_date <= bell_date
                           AND bell_schedule_history.bell_order = bell_end_time.bell_order
                         ORDER BY change_date DESC
                         LIMIT 1);
@@ -543,7 +543,7 @@ $$
 begin
     if ((SELECT sch.begin_time
          FROM get_bells_schedule(change_time::date) sch
-         WHERE sch.bell_order = add_bell.bell_order) <= change_time::time) then
+         WHERE sch.bell_order = add_bell.bell_order)::time <= change_time::time) then
         INSERT INTO bell_schedule_history (bell_order, begin_time, end_time, change_date)
         VALUES (add_bell.bell_order, add_bell.begin_time, add_bell.end_time,
                 add_bell.change_time::date + INTERVAL '1 day');
@@ -768,9 +768,9 @@ declare
     begin_time timestamp;
     end_time   timestamp;
 begin
-    for bell_order, begin_time, end_time in (SELECT get_bells_schedule(NEW.change_date::date))
+    for bell_order, begin_time, end_time in (SELECT * FROM get_bells_schedule(NEW.change_date::date))
         loop
-            if (bell_order != NEW.bell_order AND NOT (NEW.begin_time > end_time OR begin_time > NEW.end_time)) then
+            if (bell_order != NEW.bell_order AND NOT (NEW.begin_time > end_time::time OR begin_time::time > NEW.end_time)) then
                 return NULL;
             end if;
         end loop;
