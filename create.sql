@@ -195,6 +195,7 @@ CREATE TABLE quarters
 (
     begin_date date NOT NULL,
     end_date   date NOT NULL,
+    quarter_order integer,
     quarter_id serial,
 
     PRIMARY KEY (quarter_id)
@@ -954,6 +955,12 @@ ALTER TABLE quarters
     ADD CONSTRAINT quarters_begin_before_end
         CHECK (
             begin_date < end_date
+            );
+
+ALTER TABLE quarters
+    ADD CONSTRAINT quarters_appropriate_order
+        CHECK (
+            quarter_order >= 1 AND quarter_order <= 4
             );
 
 ALTER TABLE holidays
