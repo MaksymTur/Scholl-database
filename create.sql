@@ -863,6 +863,41 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_quarters_in_year(year integer)
+    RETURNS table
+            (
+                quarter_id integer
+            )
+AS
+$$
+begin
+    return query SELECT quarter_id
+                 FROM quarters
+                 WHERE get_quarter_year(quarter_id) = year;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_mark_in_year(pupil_id integer, subject_id integer, year integer)
+    RETURNS numeric(5, 3)
+AS
+$$
+declare
+    a numeric(5, 3);
+    b numeric(5, 3);
+    i integer;
+begin
+    if get_mandatory(subject_id) = False then
+        raise exception 'Subject is not mandatory.';
+    end if;
+    for i in (SELECT get_quarters_in_year(year))
+        loop
+            a := a + get_mark_in_quarter(pupil_id, subject_id, i);
+            b := b + 1;
+        end loop;
+    return a / b;
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
