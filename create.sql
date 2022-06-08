@@ -735,7 +735,7 @@ end;
 $$ language plpgsql;
 
 CREATE FUNCTION get_theme_of_event(event_id integer)
-    RETURNS boolean
+    RETURNS integer
 AS
 $$
 begin
@@ -1010,12 +1010,13 @@ declare
     i integer;
 begin
     for i in (SELECT group_id
-              FROM get_groups_of_pupil(NEW.pupil_id, change_time)
+              FROM get_groups_of_pupil(NEW.pupil_id, NEW.change_time)
               WHERE get_group_class(group_id) IS NOT NULL
-                AND get_group_class(group_id) != get_class(NEW.pupil_id, change_time))
+                AND get_group_class(group_id) != get_class(NEW.pupil_id, NEW.change_time))
         loop
             SELECT delete_from_group(NEW.pupil_id, i, NEW.change_time);
         end loop;
+    return NEW;
 end;
 $$
     LANGUAGE PLPGSQL;
@@ -1394,7 +1395,6 @@ values ('A', 11),
        ('A', 10),
        ('B', 10);
 
-/*
 insert into class_history (pupil_id, class_id, change_time)
 values (1, 1, '2021-08-31 12:00:00'),
        (2, 1, '2021-08-31 12:00:00'),
@@ -1516,7 +1516,6 @@ values (1, 1, '2021-08-31 12:00:00'),
        (118, 4, '2021-08-31 12:00:00'),
        (119, 4, '2021-08-31 12:00:00'),
        (120, 4, '2021-08-31 12:00:00');
-*/
 --data final block end
 
 
