@@ -768,6 +768,30 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_now_quarter(at_date date)
+    RETURNS integer
+AS
+$$
+begin
+    return (SELECT quarter_id
+            FROM quarters
+            WHERE quarters.begin_date <= at_date
+            AND quarters.end_date <= at_date);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_now_holiday(at_date date)
+    RETURNS integer
+AS
+$$
+begin
+    return (SELECT holidays_id
+            FROM holidays
+            WHERE holidays.begin_date <= at_date
+            AND holidays.end_date <= at_date);
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
@@ -930,6 +954,13 @@ ALTER TABLE events
     ADD CONSTRAINT events_bell_exists_check
         CHECK (
             bell_begin_time(event_date, event_bell) IS NOT NULL
+            );
+
+ALTER TABLE events
+    ADD CONSTRAINT events_normal_event_date
+        CHECK (
+            get_now_quarter(event_date) IS NOT NULL
+            AND get_now_holiday(event_date) IS NULL
             );
 
 ALTER TABLE marks

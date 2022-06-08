@@ -118,6 +118,10 @@ drop function if exists get_quarter_year(integer) cascade;
 
 drop function if exists get_quarter_order(integer) cascade;
 
+drop function if exists get_now_quarter(date) cascade;
+
+drop function if exists get_now_holiday(date) cascade;
+
 drop function if exists bell_schedule_history_insert_trigger() cascade;
 
 drop function if exists groups_mandatory_check_f(integer, integer) cascade;
