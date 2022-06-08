@@ -52,8 +52,14 @@ public class EventsMenuController {
     final ObservableList<Integer> chosenGroups = FXCollections.observableArrayList();
     final ObservableList<Integer> pupilsList = FXCollections.observableArrayList();
     final Set<Integer> pupilsSkips = new HashSet<>();
+    final IntegerProperty chosenPupil = new SimpleIntegerProperty();
 
     final IntegerProperty editableEvent = new SimpleIntegerProperty();
+
+    @FXML Text chosenPupilText;
+    @FXML Spinner<Integer> markPicker;
+    @FXML ComboBox<Integer> markTypePicker;
+    @FXML Button setMarkButton;
 
     final ObservableList<Integer> lessonsOnDate = FXCollections.observableArrayList();
     final Map<Integer, Pair<LocalTime, LocalTime>> lessonsBounds = new HashMap<>();
@@ -64,6 +70,7 @@ public class EventsMenuController {
     final Map<Integer, String> themeNameById = new HashMap<>();
     final Map<Integer, String> groupNameById = new HashMap<>();
     final Map<Integer, String> pupilFullNameById = new HashMap<>();
+    final Map<Integer, String> markTypeNameById = new HashMap<>();
 
     final ObservableList<Integer> availableDefaultScheduleTeachers = FXCollections.observableArrayList();
     final ObservableList<Integer> availableTeachers = FXCollections.observableArrayList();
@@ -71,6 +78,7 @@ public class EventsMenuController {
     final ObservableList<Integer> availableSubjects = FXCollections.observableArrayList();
     final ObservableList<Integer> availableThemes = FXCollections.observableArrayList();
     final ObservableList<Integer> availableGroups = FXCollections.observableArrayList();
+    final ObservableList<Integer> availableMarkTypes = FXCollections.observableArrayList();
 
     void initInfo(){
         try(PreparedStatement st = conn.prepareStatement("SELECT employee_id, CONCAT(first_name, ' ', last_name) FROM employees")) {
@@ -119,6 +127,15 @@ public class EventsMenuController {
             pupilFullNameById.clear();
             while (res.next())
                 pupilFullNameById.put(res.getInt(1), res.getString(2));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        try(PreparedStatement st = conn.prepareStatement("SELECT type_id, type_name FROM mark_types")){
+            ResultSet res = st.executeQuery();
+            markTypeNameById.clear();
+            while(res.next())
+                markTypeNameById.put(res.getInt(1), res.getString(2));
+            availableMarkTypes.setAll(markTypeNameById.keySet());
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -350,7 +367,44 @@ public class EventsMenuController {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+        chosenPupil.set(0);
         pupilsListView.refresh();
+    }
+
+    void tryLoadMark(){
+        try(PreparedStatement st = conn.prepareStatement("SELECT mark, type_id FROM marks WHERE event_id = ? AND pupil_id = ?")){
+            st.setInt(1, editableEvent.get());
+            st.setInt(2, chosenPupil.get());
+            ResultSet res = st.executeQuery();
+            if(res.next()){
+                markPicker.getValueFactory().setValue(res.getInt(1));
+                markTypePicker.setValue(res.getInt(2));
+            }
+            else{
+                markPicker.getValueFactory().setValue(0);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @FXML
+    void onSetMark(ActionEvent event){
+        try(PreparedStatement st = conn.prepareStatement("INSERT INTO marks(pupil_id, event_id, mark, type_id) VALUES (?, ?, ?, ?)")){
+            st.setInt(1, chosenPupil.get());
+            st.setInt(2, editableEvent.get());
+            st.setInt(3, markPicker.getValue());
+            st.setInt(4, markTypePicker.getValue());
+            st.executeUpdate();
+            conn.commit();
+        } catch (SQLException e) {
+            try{
+                conn.rollback();
+            } catch (SQLException ex) {
+                throw new RuntimeException(ex);
+            }
+            throw new RuntimeException(e);
+        }
     }
 
     boolean isListEmpty(List<?> list){
@@ -362,8 +416,9 @@ public class EventsMenuController {
 
         lessonsOnDate.addListener((ListChangeListener<Integer>) c -> lessonPicker.setDisable(isListEmpty(c.getList())));
         lessonPicker.setValueFactory(new SpinnerValueFactory.ListSpinnerValueFactory<>(lessonsOnDate));
+        markPicker.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 12));
         lessonPicker.valueProperty().addListener((observable, oldValue, newValue) -> {
-            Pair<LocalTime, LocalTime> p = lessonsBounds.get(newValue.intValue());
+            Pair<LocalTime, LocalTime> p = lessonsBounds.get(newValue);
             LocalTime from = p.getKey(),
                     to = p.getValue();
             lessonBoundsText.setText("from %s to %s".formatted(from.toString(), to.toString()));
@@ -399,6 +454,23 @@ public class EventsMenuController {
         subjectPicker.valueProperty().addListener((observable, oldValue, newValue) -> updateAvailableThemes());
         editableEvent.addListener((observable, oldValue, newValue) -> updateGroups());
         chosenGroups.addListener((ListChangeListener<? super Integer>) c -> updatePupils());
+
+        chosenPupil.addListener((observable, oldValue, newValue) -> {
+            if(pupilsList.contains(newValue.intValue())){
+                chosenPupilText.setText(pupilFullNameById.get(newValue.intValue()));
+                markPicker.setDisable(false);
+                markTypePicker.setDisable(false);
+                setMarkButton.setDisable(false);
+            }
+            else {
+                chosenPupilText.setText("");
+                markPicker.setDisable(true);
+                markTypePicker.setDisable(true);
+                setMarkButton.setDisable(true);
+            }
+        });
+
+        chosenPupil.addListener((observable, oldValue, newValue) -> tryLoadMark());
 
         {
             datePicker.valueProperty().addListener(c -> editableEvent.set(0));
@@ -480,6 +552,13 @@ public class EventsMenuController {
 
             addGroupPicker.setItems(availableGroups);
         } // addGroupPicker
+        {
+            Supplier<ListCell<Integer>> cellFactory = cellFactoryBuilder.apply(markTypeNameById);
+            markTypePicker.setButtonCell(cellFactory.get());
+            markTypePicker.setCellFactory(param -> cellFactory.get());
+
+            markTypePicker.setItems(availableMarkTypes);
+        } // markTypePicker
 
         {
             Supplier<ListCell<Integer>> cellFactory = () -> new ListCell<>() {
@@ -534,37 +613,41 @@ public class EventsMenuController {
                     this.setOnMouseClicked(event -> {
                         if(item == null)
                             return;
-                        if(pupilsSkips.contains(item)) {
-                            try(PreparedStatement st = conn.prepareStatement("DELETE FROM skips WHERE pupil_id = ? AND event_id = ?")){
-                                st.setInt(1, item);
-                                st.setInt(2, editableEvent.getValue());
-                                st.executeUpdate();
-                                conn.commit();
-                            } catch (SQLException e) {
-                                try{
-                                    conn.rollback();
-                                } catch (SQLException ex) {
-                                    throw new RuntimeException(ex);
-                                }
-                                throw new RuntimeException(e);
-                            }
-                            pupilsSkips.remove(item);
+                        if(event.getClickCount() == 1){
+                            chosenPupil.set(item);
                         }
-                        else{
-                            try(PreparedStatement st = conn.prepareStatement("INSERT INTO skips(pupil_id, event_id) VALUES (?, ?)")){
-                                st.setInt(1, item);
-                                st.setInt(2, editableEvent.getValue());
-                                st.executeUpdate();
-                                conn.commit();
-                            } catch (SQLException e) {
-                                try{
-                                    conn.rollback();
-                                } catch (SQLException ex) {
-                                    throw new RuntimeException(ex);
+                        else if(event.getClickCount() == 2) {
+                            if (pupilsSkips.contains(item)) {
+                                try (PreparedStatement st = conn.prepareStatement("DELETE FROM skips WHERE pupil_id = ? AND event_id = ?")) {
+                                    st.setInt(1, item);
+                                    st.setInt(2, editableEvent.getValue());
+                                    st.executeUpdate();
+                                    conn.commit();
+                                } catch (SQLException e) {
+                                    try {
+                                        conn.rollback();
+                                    } catch (SQLException ex) {
+                                        throw new RuntimeException(ex);
+                                    }
+                                    throw new RuntimeException(e);
                                 }
-                                throw new RuntimeException(e);
+                                pupilsSkips.remove(item);
+                            } else {
+                                try (PreparedStatement st = conn.prepareStatement("INSERT INTO skips(pupil_id, event_id) VALUES (?, ?)")) {
+                                    st.setInt(1, item);
+                                    st.setInt(2, editableEvent.getValue());
+                                    st.executeUpdate();
+                                    conn.commit();
+                                } catch (SQLException e) {
+                                    try {
+                                        conn.rollback();
+                                    } catch (SQLException ex) {
+                                        throw new RuntimeException(ex);
+                                    }
+                                    throw new RuntimeException(e);
+                                }
+                                pupilsSkips.add(item);
                             }
-                            pupilsSkips.add(item);
                         }
                         pupilsListView.refresh();
                     });
