@@ -739,9 +739,56 @@ CREATE FUNCTION get_theme_of_event(event_id integer)
 AS
 $$
 begin
-    return (SELECT get_theme_of_event(theme_id)
+    return (SELECT theme_id
                  FROM events
                  WHERE events.event_id = get_theme_of_event.event_id);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_quarters_begin(quarter_id integer)
+    RETURNS date
+AS
+$$
+begin
+    return (SELECT begin_date
+            FROM quarters
+            WHERE quarters.quarter_id = get_quarters_begin.quarter_id);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_quarters_end(quarter_id integer)
+    RETURNS date
+AS
+$$
+begin
+    return (SELECT end_date
+            FROM quarters
+            WHERE quarters.quarter_id = get_quarters_end.quarter_id);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_quarter_year(quarter_id integer)
+    RETURNS integer
+AS
+$$
+begin
+    if extract(month from get_quarter_end(quarter_id)) < 7 then
+        return extract(year from get_quarter_end(quarter_id)) - 1;
+    else
+        return extract(year from get_quarter_end(quarter_id));
+    end if;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_quarter_order(quarter_id integer)
+    RETURNS integer
+AS
+$$
+begin
+    return (SELECT COUNT(*)
+            FROM quarters
+            WHERE get_quarter_year(quarters.quarter_id) = get_quarter_year(get_quarter_order.quarter_id)
+            AND quarters.begin_date < get_quarter_begin(get_quarter_order.quarter_id)) + 1;
 end;
 $$ language plpgsql;
 
@@ -954,6 +1001,22 @@ ALTER TABLE quarters
     ADD CONSTRAINT quarters_begin_before_end
         CHECK (
             begin_date < end_date
+            );
+
+ALTER TABLE quarters
+    ADD CONSTRAINT quarters_quarter_in_one_semester
+        CHECK (
+            extract(year from begin_date) = extract(year from end_date)
+            AND extract(month from begin_date) != 7
+            AND extract(month from end_date) != 7
+            AND (extract(month from begin_date) < 7 AND extract(month from end_date) < 7
+                OR extract(month from begin_date) > 7 AND extract(month from end_date) > 7)
+            );
+
+ALTER TABLE quarters
+    ADD CONSTRAINT quarters_4_quarters_in_semester
+        CHECK (
+            get_quarter_order(quarter_id) <= 4
             );
 
 ALTER TABLE holidays
