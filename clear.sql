@@ -14,8 +14,6 @@ drop table if exists marks cascade;
 
 drop table if exists mark_types cascade;
 
-drop table if exists quarters cascade;
-
 drop table if exists holidays cascade;
 
 drop table if exists salary_history cascade;
@@ -33,6 +31,8 @@ drop table if exists groups_to_events cascade;
 drop table if exists events cascade;
 
 drop table if exists themes cascade;
+
+drop table if exists quarters cascade;
 
 drop table if exists groups_to_schedule cascade;
 
@@ -121,6 +121,8 @@ drop function if exists get_quarter_order(integer) cascade;
 drop function if exists get_now_quarter(date) cascade;
 
 drop function if exists get_now_holiday(date) cascade;
+
+drop function if exists get_quarter_of_theme(integer) cascade;
 
 drop function if exists bell_schedule_history_insert_trigger() cascade;
 

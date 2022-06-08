@@ -36,12 +36,22 @@ CREATE TABLE pupils
 );
 
 
+CREATE TABLE quarters
+(
+    begin_date date NOT NULL,
+    end_date   date NOT NULL,
+    quarter_id serial,
+
+    PRIMARY KEY (quarter_id)
+);
+
 CREATE TABLE themes
 (
-    title          varchar(40)             NOT NULL,
-    subject_id     int REFERENCES subjects NOT NULL,
-    lessons_length integer                 NOT NULL,
-    theme_order    integer                 NOT NULL,
+    title          varchar(40)                 NOT NULL,
+    subject_id     int REFERENCES subjects     NOT NULL,
+    lessons_length integer                     NOT NULL,
+    theme_order    integer                     NOT NULL,
+    quarter_id     integer REFERENCES quarters NOT NULL,
     theme_id       serial,
 
     UNIQUE (title, subject_id),
@@ -189,15 +199,6 @@ CREATE TABLE marks
     mark_id  serial,
 
     PRIMARY KEY (mark_id)
-);
-
-CREATE TABLE quarters
-(
-    begin_date date NOT NULL,
-    end_date   date NOT NULL,
-    quarter_id serial,
-
-    PRIMARY KEY (quarter_id)
 );
 
 CREATE TABLE holidays
@@ -705,8 +706,8 @@ AS
 $$
 begin
     return (SELECT mandatory
-                 FROM subjects
-                 WHERE subjects.subject_id = get_mandatory.subject_id);
+            FROM subjects
+            WHERE subjects.subject_id = get_mandatory.subject_id);
 end;
 $$ language plpgsql;
 
@@ -716,8 +717,8 @@ AS
 $$
 begin
     return (SELECT theme_id
-                 FROM events
-                 WHERE events.event_id = get_theme_of_event.event_id);
+            FROM events
+            WHERE events.event_id = get_theme_of_event.event_id);
 end;
 $$ language plpgsql;
 
@@ -764,7 +765,7 @@ begin
     return (SELECT COUNT(*)
             FROM quarters
             WHERE get_quarter_year(quarters.quarter_id) = get_quarter_year(get_quarter_order.quarter_id)
-            AND quarters.begin_date < get_quarter_begin(get_quarter_order.quarter_id)) + 1;
+              AND quarters.begin_date < get_quarter_begin(get_quarter_order.quarter_id)) + 1;
 end;
 $$ language plpgsql;
 
@@ -776,7 +777,7 @@ begin
     return (SELECT quarter_id
             FROM quarters
             WHERE quarters.begin_date <= at_date
-            AND quarters.end_date <= at_date);
+              AND quarters.end_date <= at_date);
 end;
 $$ language plpgsql;
 
@@ -788,7 +789,18 @@ begin
     return (SELECT holidays_id
             FROM holidays
             WHERE holidays.begin_date <= at_date
-            AND holidays.end_date <= at_date);
+              AND holidays.end_date <= at_date);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_quarter_of_theme(theme_id integer)
+    RETURNS integer
+AS
+$$
+begin
+    return (SELECT quarter_id
+            FROM themes
+            WHERE themes.theme_id = get_quarter_of_theme.theme_id);
 end;
 $$ language plpgsql;
 
@@ -869,21 +881,21 @@ CREATE FUNCTION groups_mandatory_check_f(class_id integer, subject_id integer)
 $$
 begin
     return (subject_id IS NULL
-                OR (SELECT mandatory
-                    FROM subjects
-                    WHERE subjects.subject_id = groups_mandatory_check_f.subject_id) = False
-                OR ((SELECT mandatory
-                     FROM subjects
-                     WHERE subjects.subject_id = groups_mandatory_check_f.subject_id) = True
-                AND class_id IS NOT NULL));
+        OR (SELECT mandatory
+            FROM subjects
+            WHERE subjects.subject_id = groups_mandatory_check_f.subject_id) = False
+        OR ((SELECT mandatory
+             FROM subjects
+             WHERE subjects.subject_id = groups_mandatory_check_f.subject_id) = True
+            AND class_id IS NOT NULL));
 end;
 $$
     LANGUAGE PLPGSQL;
 
 ALTER TABLE "groups"
     ADD CONSTRAINT groups_mandatory_check
-        CHECK (  
-               groups_mandatory_check_f(class_id, subject_id)
+        CHECK (
+            groups_mandatory_check_f(class_id, subject_id)
             );
 
 ALTER TABLE groups_history
@@ -959,8 +971,14 @@ ALTER TABLE events
 ALTER TABLE events
     ADD CONSTRAINT events_normal_event_date
         CHECK (
-            get_now_quarter(event_date) IS NOT NULL
-            AND get_now_holiday(event_date) IS NULL
+                get_now_quarter(event_date) IS NOT NULL
+                AND get_now_holiday(event_date) IS NULL
+            );
+
+ALTER TABLE events
+    ADD CONSTRAINT events_event_only_in_his_quarter
+        CHECK (
+                get_quarter_of_theme(get_theme_of_event(event_id)) = get_now_quarter(event_date)
             );
 
 ALTER TABLE marks
@@ -1013,10 +1031,10 @@ ALTER TABLE quarters
 ALTER TABLE quarters
     ADD CONSTRAINT quarters_quarter_in_one_semester
         CHECK (
-            extract(year from begin_date) = extract(year from end_date)
-            AND extract(month from begin_date) != 7
-            AND extract(month from end_date) != 7
-            AND (extract(month from begin_date) < 7 AND extract(month from end_date) < 7
+                    extract(year from begin_date) = extract(year from end_date)
+                AND extract(month from begin_date) != 7
+                AND extract(month from end_date) != 7
+                AND (extract(month from begin_date) < 7 AND extract(month from end_date) < 7
                 OR extract(month from begin_date) > 7 AND extract(month from end_date) > 7)
             );
 
@@ -1145,14 +1163,14 @@ CREATE FUNCTION groups_to_events_same_subject_check_f(group_id integer, event_id
 $$
 begin
     return ((get_subject_of_theme((SELECT theme_id
-                                    FROM events
-                                    WHERE events.event_id = groups_to_events_same_subject_check_f.event_id)) =
-              (SELECT subject_id
-               FROM "groups"
-               WHERE groups.group_id = groups_to_events_same_subject_check_f.group_id))
-                OR (SELECT subject_id
-                    FROM "groups"
-                    WHERE groups.group_id = groups_to_events_same_subject_check_f.group_id) IS NULL);
+                                   FROM events
+                                   WHERE events.event_id = groups_to_events_same_subject_check_f.event_id)) =
+             (SELECT subject_id
+              FROM "groups"
+              WHERE groups.group_id = groups_to_events_same_subject_check_f.group_id))
+        OR (SELECT subject_id
+            FROM "groups"
+            WHERE groups.group_id = groups_to_events_same_subject_check_f.group_id) IS NULL);
 end;
 $$
     LANGUAGE PLPGSQL;
@@ -1160,7 +1178,7 @@ $$
 ALTER TABLE groups_to_events
     ADD CONSTRAINT groups_to_events_same_subject_check
         CHECK (
-                groups_to_events_same_subject_check_f(group_id, event_id)
+            groups_to_events_same_subject_check_f(group_id, event_id)
             );
 
 CREATE FUNCTION groups_to_events_same_class_check_f(group_id integer, event_id integer)
@@ -1168,14 +1186,14 @@ CREATE FUNCTION groups_to_events_same_class_check_f(group_id integer, event_id i
 $$
 begin
     return (SELECT class_id
-                 FROM events
-                 WHERE events.event_id = groups_to_events_same_class_check_f.event_id) IS NULL
-                OR (SELECT class_id
-                    FROM events
-                    WHERE events.event_id = groups_to_events_same_class_check_f.event_id) =
-                   (SELECT class_id
-                    FROM "groups"
-                    WHERE groups.group_id = groups_to_events_same_class_check_f.group_id);
+            FROM events
+            WHERE events.event_id = groups_to_events_same_class_check_f.event_id) IS NULL
+        OR (SELECT class_id
+            FROM events
+            WHERE events.event_id = groups_to_events_same_class_check_f.event_id) =
+           (SELECT class_id
+            FROM "groups"
+            WHERE groups.group_id = groups_to_events_same_class_check_f.group_id);
 end;
 $$
     LANGUAGE PLPGSQL;
@@ -1183,7 +1201,7 @@ $$
 ALTER TABLE groups_to_events
     ADD CONSTRAINT groups_to_events_same_class_check
         CHECK (
-                groups_to_events_same_class_check_f(group_id, event_id)
+            groups_to_events_same_class_check_f(group_id, event_id)
             );
 
 CREATE FUNCTION groups_to_events_delete_trigger()
@@ -1209,7 +1227,7 @@ $$
 ALTER TABLE subject_to_class_certificate
     ADD CONSTRAINT classes_normal_study_year_check
         CHECK (
-                get_mandatory(subject_id) = True
+            get_mandatory(subject_id) = True
             );
 
 CREATE TRIGGER groups_to_events_delete_from_journal_on_delete
@@ -1223,15 +1241,16 @@ CREATE FUNCTION groups_to_schedule_same_subject_check_f(group_id integer, event_
 $$
 begin
     return ((SELECT subject_id
-                  FROM schedule_history
-                  WHERE schedule_history.schedule_history_id = groups_to_schedule_same_subject_check_f.event_in_schedule_id) =
-                 (SELECT subject_id
-                  FROM "groups"
-                  WHERE groups.group_id = groups_to_schedule_same_subject_check_f.group_id))
-                OR
-                (SELECT subject_id
-                 FROM "groups"
-                 WHERE groups.group_id = groups_to_schedule_same_subject_check_f.group_id) IS NULL;
+             FROM schedule_history
+             WHERE schedule_history.schedule_history_id =
+                   groups_to_schedule_same_subject_check_f.event_in_schedule_id) =
+            (SELECT subject_id
+             FROM "groups"
+             WHERE groups.group_id = groups_to_schedule_same_subject_check_f.group_id))
+        OR
+           (SELECT subject_id
+            FROM "groups"
+            WHERE groups.group_id = groups_to_schedule_same_subject_check_f.group_id) IS NULL;
 end;
 $$
     LANGUAGE PLPGSQL;
@@ -1239,23 +1258,23 @@ $$
 ALTER TABLE groups_to_schedule
     ADD CONSTRAINT groups_to_schedule_same_subject_check
         CHECK (
-                groups_to_schedule_same_subject_check_f(group_id, event_in_schedule_id)
-         );
+            groups_to_schedule_same_subject_check_f(group_id, event_in_schedule_id)
+            );
 
 CREATE FUNCTION groups_to_schedule_same_class_check_f(group_id integer, event_in_schedule_id integer)
     RETURNS boolean AS
 $$
 begin
     return ((SELECT class_id
-                  FROM schedule_history
-                  WHERE schedule_history.schedule_history_id = groups_to_schedule_same_class_check_f.event_in_schedule_id) =
-                 (SELECT class_id
-                  FROM "groups"
-                  WHERE groups.group_id = groups_to_schedule_same_class_check_f.group_id))
-                OR
-                (SELECT class_id
-                 FROM "groups"
-                 WHERE groups.group_id = groups_to_schedule_same_class_check_f.group_id) IS NULL;
+             FROM schedule_history
+             WHERE schedule_history.schedule_history_id = groups_to_schedule_same_class_check_f.event_in_schedule_id) =
+            (SELECT class_id
+             FROM "groups"
+             WHERE groups.group_id = groups_to_schedule_same_class_check_f.group_id))
+        OR
+           (SELECT class_id
+            FROM "groups"
+            WHERE groups.group_id = groups_to_schedule_same_class_check_f.group_id) IS NULL;
 end;
 $$
     LANGUAGE PLPGSQL;
@@ -1263,8 +1282,8 @@ $$
 ALTER TABLE groups_to_schedule
     ADD CONSTRAINT groups_to_schedule_same_class_check
         CHECK (
-                groups_to_schedule_same_class_check_f(group_id, event_in_schedule_id)
-         );
+            groups_to_schedule_same_class_check_f(group_id, event_in_schedule_id)
+            );
 
 --checkers and triggers block end
 --indexes block
