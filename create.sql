@@ -827,6 +827,42 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_themes_in_quarter(subject_id1 integer, quarter_id1 integer)
+    RETURNS table
+            (
+                theme_id integer
+            )
+AS
+$$
+begin
+    return query SELECT theme_id
+                 FROM themes
+                 WHERE themes.subject_id = subject_id1
+                   AND themes.quarter_id = quarter_id1;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_mark_in_quarter(pupil_id integer, subject_id integer, quarter_id integer)
+    RETURNS numeric(5, 3)
+AS
+$$
+declare
+    a numeric(5, 3);
+    b numeric(5, 3);
+    i integer;
+begin
+    if get_mandatory(subject_id) = False then
+        raise exception 'Subject is not mandatory.';
+    end if;
+    for i in (SELECT get_themes_in_quarter(subject_id, quarter_id))
+        loop
+            a := a + get_mark_from_theme(pupil_id, i);
+            b := b + 1;
+        end loop;
+    return a / b;
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
