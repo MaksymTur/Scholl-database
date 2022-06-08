@@ -138,6 +138,16 @@ drop function if exists get_mark_in_year(integer, integer, integer) cascade;
 
 drop function if exists get_certificate_for_class(integer) cascade;
 
+drop function if exists get_schedule_for_class(integer, date) cascade;
+
+drop function if exists get_skip_date(integer) cascade;
+
+drop function if exists is_real_skip(integer) cascade;
+
+drop function if exists get_events_of_subject(integer) cascade;
+
+drop function if exists get_all_skips(integer, integer) cascade;
+
 drop function if exists bell_schedule_history_insert_trigger() cascade;
 
 drop function if exists groups_mandatory_check_f(integer, integer) cascade;

@@ -241,8 +241,9 @@ CREATE TABLE skips
 (
     pupil_id int REFERENCES pupils NOT NULL,
     event_id int REFERENCES events NOT NULL,
+    skip_id serial,
 
-    PRIMARY KEY (pupil_id, event_id)
+    PRIMARY KEY (skip_id)
 );
 
 CREATE TABLE groups_to_events
@@ -492,6 +493,7 @@ CREATE FUNCTION get_schedule(at_date date)
                 teacher_id integer,
                 room_id    integer,
                 bell_order integer,
+                class_id   integer,
                 subject_id integer
             )
 AS
@@ -909,6 +911,71 @@ begin
     return query SELECT subject_id
                  FROM subject_to_class_certificate
                  WHERE subject_to_class_certificate.class_id = class_id1;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_schedule_for_class(class_id1 integer, at_date date)
+    RETURNS table
+            (
+                subject_id integer
+            )
+AS
+$$
+begin
+    return query SELECT *
+                 FROM get_schedule(at_date) sch
+                 WHERE sch.class_id = class_id1;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_skip_date(skip_id integer)
+    RETURNS date AS
+$$
+begin
+    return (SELECT event_date
+            FROM events
+            WHERE event_id = (SELECT event_id
+                              FROM skips
+                              WHERE skips.skip_id = get_skip_date.skip_id));
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION is_real_skip(skip_id integer)
+    RETURNS integer AS
+$$
+begin
+    return EXISTS(SELECT *
+        FROM excuses
+        WHERE pupil_id = (SELECT pupil_id
+                          FROM skips
+                          WHERE skips.skip_id = is_real_skip.skip_id)
+        AND begin_date <= get_skip_date(skip_id)
+        AND end_date >= get_skip_date(skip_id));
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_events_of_subject(subject_id integer)
+    RETURNS table
+            (
+                event_id integer
+            )
+AS
+$$
+begin
+    return query SELECT event_id
+                 FROM events
+                 WHERE get_subject_of_theme(get_theme_of_event(event_id)) = subject_id;
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION get_all_skips(pupil_id integer, subject_id integer)
+    RETURNS integer AS
+$$
+begin
+    return (SELECT COUNT(*)
+                  FROM get_events_of_subject(subject_id) NATURAL JOIN skips
+                  WHERE skips.pupil_id = get_all_skips.pupil_id
+                  AND is_real_skip(skip_id));
 end;
 $$ language plpgsql;
 
