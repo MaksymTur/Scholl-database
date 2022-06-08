@@ -631,7 +631,7 @@ CREATE FUNCTION get_groups_from_event(event_id1 integer)
 AS
 $$
 begin
-    return query (SELECT group_id
+    return query (SELECT groups_to_events.group_id
                   FROM groups_to_events
                   WHERE groups_to_events.event_id = event_id1);
 end;
@@ -1044,7 +1044,7 @@ begin
     for i in (SELECT get_groups_from_event(NEW.event_id))
         loop
             if (EXISTS(SELECT pupils.pupil_id
-                       FROM get_pupils_from_group(i, NOW()) pupils
+                       FROM get_pupils_from_group(i, NOW()::timestamp) pupils
                        WHERE pupils.pupil_id = NEW.pupil_id)) then
                 should_be := true;
             end if;
@@ -1143,7 +1143,7 @@ ALTER TABLE subject_to_class_certificate
             );
 
 CREATE TRIGGER groups_to_events_delete_from_journal_on_delete
-    BEFORE INSERT
+    BEFORE DELETE
     ON groups_to_events
     FOR EACH ROW
 EXECUTE PROCEDURE groups_to_events_delete_trigger();
