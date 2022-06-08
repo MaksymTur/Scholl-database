@@ -476,30 +476,6 @@ begin
 end;
 $$ language plpgsql;
 
-CREATE FUNCTION get_quarter_begin(at_date date)
-    RETURNS date AS
-$$
-begin
-    return (SELECT quarters.begin_date
-            FROM quarters
-            WHERE begin_date <= at_date
-            ORDER BY begin_date DESC
-            LIMIT 1);
-end;
-$$ language plpgsql;
-
-CREATE FUNCTION get_quarter_end(at_date date)
-    RETURNS date AS
-$$
-begin
-    return (SELECT quarters.end_date
-            FROM quarters
-            WHERE begin_date <= at_date
-            ORDER BY begin_date DESC
-            LIMIT 1);
-end;
-$$ language plpgsql;
-
 CREATE FUNCTION get_parity(at_date date)
     RETURNS boolean AS
 $$
@@ -745,25 +721,25 @@ begin
 end;
 $$ language plpgsql;
 
-CREATE FUNCTION get_quarters_begin(quarter_id integer)
+CREATE FUNCTION get_quarter_begin(quarter_id integer)
     RETURNS date
 AS
 $$
 begin
     return (SELECT begin_date
             FROM quarters
-            WHERE quarters.quarter_id = get_quarters_begin.quarter_id);
+            WHERE quarters.quarter_id = get_quarter_begin.quarter_id);
 end;
 $$ language plpgsql;
 
-CREATE FUNCTION get_quarters_end(quarter_id integer)
+CREATE FUNCTION get_quarter_end(quarter_id integer)
     RETURNS date
 AS
 $$
 begin
     return (SELECT end_date
             FROM quarters
-            WHERE quarters.quarter_id = get_quarters_end.quarter_id);
+            WHERE quarters.quarter_id = get_quarter_end.quarter_id);
 end;
 $$ language plpgsql;
 

@@ -82,10 +82,6 @@ drop function if exists is_working(integer, timestamp) cascade;
 
 drop function if exists get_bells_schedule(date) cascade;
 
-drop function if exists get_quarter_begin(date) cascade;
-
-drop function if exists get_quarter_end(date) cascade;
-
 drop function if exists get_parity(date) cascade;
 
 drop function if exists get_schedule(date) cascade;
@@ -113,6 +109,14 @@ drop function if exists get_subject_of_theme(integer) cascade;
 drop function if exists get_mandatory(integer) cascade;
 
 drop function if exists get_theme_of_event(integer) cascade;
+
+drop function if exists get_quarter_begin(integer) cascade;
+
+drop function if exists get_quarter_end(integer) cascade;
+
+drop function if exists get_quarter_year(integer) cascade;
+
+drop function if exists get_quarter_order(integer) cascade;
 
 drop function if exists bell_schedule_history_insert_trigger() cascade;
 
