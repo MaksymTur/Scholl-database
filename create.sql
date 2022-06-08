@@ -898,6 +898,20 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_certificate_for_class(class_id1 integer)
+    RETURNS table
+            (
+                subject_id integer
+            )
+AS
+$$
+begin
+    return query SELECT subject_id
+                 FROM subject_to_class_certificate
+                 WHERE subject_to_class_certificate.class_id = class_id1;
+end;
+$$ language plpgsql;
+
 --functions block end
 --checkers and triggers block
 
