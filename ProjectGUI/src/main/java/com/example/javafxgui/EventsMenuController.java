@@ -7,28 +7,25 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
+import javafx.collections.ObservableSet;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 import javafx.util.Pair;
 
 import java.io.IOException;
+import java.sql.*;
 import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -38,29 +35,23 @@ public class EventsMenuController {
     @FXML DatePicker datePicker;
     @FXML Spinner<Integer> lessonPicker;
     @FXML Text lessonBoundsText;
-    final ObjectProperty<LocalDate> chosenDate = new SimpleObjectProperty<>();
-    final IntegerProperty chosenLesson = new SimpleIntegerProperty();
 
     @FXML ComboBox<Integer> defaultScheduleTeacherPicker;
     @FXML Button defaultScheduleLoadButton;
-    final IntegerProperty chosenDefaultTeacher = new SimpleIntegerProperty();
 
 
     @FXML ComboBox<Integer> teacherPicker;
     @FXML ComboBox<Integer> roomPicker;
     @FXML ComboBox<Integer> subjectPicker;
     @FXML ComboBox<Integer> themePicker;
-    final IntegerProperty chosenTeacher = new SimpleIntegerProperty();
-    final IntegerProperty chosenRoom = new SimpleIntegerProperty();
-    final IntegerProperty chosenSubject = new SimpleIntegerProperty();
-    final IntegerProperty chosenTheme = new SimpleIntegerProperty();
 
     @FXML ListView<Integer> groupsListView;
     @FXML ListView<Integer> pupilsListView;
     @FXML ComboBox<Integer> addGroupPicker;
     @FXML Button addGroupButton;
-    final IntegerProperty chosenAddGroup = new SimpleIntegerProperty();
     final ObservableList<Integer> chosenGroups = FXCollections.observableArrayList();
+    final ObservableList<Integer> pupilsList = FXCollections.observableArrayList();
+    final Set<Integer> pupilsSkips = new HashSet<>();
 
     final IntegerProperty editableEvent = new SimpleIntegerProperty();
 
@@ -80,8 +71,6 @@ public class EventsMenuController {
     final ObservableList<Integer> availableSubjects = FXCollections.observableArrayList();
     final ObservableList<Integer> availableThemes = FXCollections.observableArrayList();
     final ObservableList<Integer> availableGroups = FXCollections.observableArrayList();
-
-    final ObservableList<Integer> groupPupils = FXCollections.observableArrayList();
 
     void initInfo(){
         try(PreparedStatement st = conn.prepareStatement("SELECT employee_id, CONCAT(first_name, ' ', last_name) FROM employees")) {
@@ -154,9 +143,9 @@ public class EventsMenuController {
     @FXML
     void onLoadButtonPressed(ActionEvent event){
         try(PreparedStatement st = conn.prepareStatement("SELECT teacher_id, room_id, subject_id FROM get_schedule(?) WHERE bell_order = ? AND teacher_id = ?")){
-            st.setDate(1, Date.valueOf(chosenDate.get()));
-            st.setInt(2, chosenLesson.get());
-            st.setInt(3, chosenDefaultTeacher.get());
+            st.setDate(1, Date.valueOf(datePicker.getValue()));
+            st.setInt(2, lessonPicker.getValue());
+            st.setInt(3, defaultScheduleTeacherPicker.getValue());
             ResultSet res = st.executeQuery();
             if(res.next()){
                 teacherPicker.setValue(res.getInt(1));
@@ -168,15 +157,15 @@ public class EventsMenuController {
             throw new RuntimeException(e);
         }
     }
-
+    
     @FXML
     void OnStartLesson(ActionEvent event){
         try(PreparedStatement st = conn.prepareStatement("INSERT INTO events(event_date, event_bell, teacher_id, room_id, theme_id) VALUES (?, ?, ?, ?, ?) RETURNING event_id")){
-            st.setDate(1, Date.valueOf(chosenDate.get()));
-            st.setInt(2, chosenLesson.get());
-            st.setInt(3, chosenTeacher.get());
-            st.setInt(4, chosenRoom.get());
-            st.setInt(5, chosenTheme.get());
+            st.setDate(1, Date.valueOf(datePicker.getValue()));
+            st.setInt(2, lessonPicker.getValue());
+            st.setInt(3, teacherPicker.getValue());
+            st.setInt(4, roomPicker.getValue());
+            st.setInt(5, themePicker.getValue());
             ResultSet res = st.executeQuery();
             res.next();
             editableEvent.set(res.getInt(1));
@@ -191,16 +180,67 @@ public class EventsMenuController {
         }
     }
 
+    void loadEditableEvent(int event_id){
+        try(PreparedStatement st = conn.prepareStatement("SELECT event_date, event_bell, teacher_id, room_id, get_subject_of_theme(theme_id), theme_id FROM events WHERE event_id = ?")){
+            st.setInt(1, event_id);
+            ResultSet res = st.executeQuery();
+            if(res.next()) {
+                datePicker.setValue(res.getDate(1).toLocalDate());
+                lessonPicker.getValueFactory().setValue(res.getInt(2));
+                teacherPicker.setValue(res.getInt(3));
+                roomPicker.setValue(res.getInt(4));
+                subjectPicker.setValue(res.getInt(5));
+                themePicker.setValue(res.getInt(6));
+            }
+            editableEvent.set(event_id);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @FXML
+    void onLoadLesson(ActionEvent event){
+        try(PreparedStatement st = conn.prepareStatement("SELECT event_id FROM events WHERE event_date = ? AND event_bell = ? " +
+                                                                                           "AND ? = teacher_id")){
+            st.setDate(1, Date.valueOf(datePicker.getValue()));
+            st.setInt(2, lessonPicker.getValue());
+            if(teacherPicker.getValue() != null) {
+                st.setInt(3, teacherPicker.getValue());
+                ResultSet res = st.executeQuery();
+                if (res.next()) {
+                    editableEvent.set(res.getInt(1));
+                    loadEditableEvent(editableEvent.get());
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @FXML
     void onGroupAdd(){
-        if(!chosenGroups.contains(chosenAddGroup.get()))
-            chosenGroups.add(chosenAddGroup.get());
+        if(addGroupPicker.getValue() != 0    && !chosenGroups.contains(addGroupPicker.getValue())) {
+            try(PreparedStatement st = conn.prepareStatement("INSERT INTO groups_to_events(group_id, event_id) VALUES (?, ?)")){
+                st.setInt(1, addGroupPicker.getValue());
+                st.setInt(2, editableEvent.get());
+                st.executeUpdate();
+                conn.commit();
+            } catch (SQLException e) {
+                try{
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+                throw new RuntimeException(e);
+            }
+            chosenGroups.add(addGroupPicker.getValue());
+        }
     }
 
     void updateAvailableDefaultTeachers() {
         try(PreparedStatement st = conn.prepareStatement("SELECT * FROM get_schedule(?) WHERE bell_order = ?")){
-            st.setDate(1, Date.valueOf(chosenDate.get()));
-            st.setInt(2, chosenLesson.get());
+            st.setDate(1, Date.valueOf(datePicker.getValue()));
+            st.setInt(2, lessonPicker.getValue());
             ResultSet res = st.executeQuery();
             List<Integer> newList = FXCollections.observableArrayList();
             while (res.next())
@@ -249,11 +289,13 @@ public class EventsMenuController {
 
     void updateAvailableThemes(){
         try(PreparedStatement st = conn.prepareStatement("SELECT theme_id FROM themes WHERE subject_id = ?")){
-            st.setInt(1, chosenSubject.get());
-            ResultSet res = st.executeQuery();
             List<Integer> newList = FXCollections.observableArrayList();
-            while (res.next())
-                newList.add(res.getInt(1));
+            if(subjectPicker.getValue() != null){
+                st.setInt(1, subjectPicker.getValue());
+                ResultSet res = st.executeQuery();
+                while (res.next())
+                    newList.add(res.getInt(1));
+            }
             availableThemes.setAll(newList);
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -261,9 +303,11 @@ public class EventsMenuController {
     }
 
     void updateGroups(){
-        try(PreparedStatement stAvailable = conn.prepareStatement("SELECT group_id FROM \"groups\"");
+        try(PreparedStatement stAvailable = conn.prepareStatement("SELECT group_id FROM \"groups\" WHERE groups_to_events_same_class_check_f(group_id, ?) AND groups_to_events_same_subject_check_f(group_id, ?)");
             PreparedStatement stChosen = conn.prepareStatement("SELECT group_id FROM groups_to_events WHERE event_id = ?")){
             {
+                stAvailable.setInt(1, editableEvent.get());
+                stAvailable.setInt(2, editableEvent.get());
                 ResultSet res = stAvailable.executeQuery();
                 List<Integer> newList = FXCollections.observableArrayList();
                 while (res.next())
@@ -283,33 +327,48 @@ public class EventsMenuController {
         }
     }
 
+    void updatePupils(){
+        Set<Integer> newPupils = new HashSet<>();
+        try(PreparedStatement st = conn.prepareStatement("SELECT DISTINCT get_pupils_from_group(group_id) FROM unnest(?) AS group_id")){
+            st.setArray(1, conn.createArrayOf("integer", chosenGroups.toArray()));
+            ResultSet res = st.executeQuery();
+            while(res.next())
+                newPupils.add(res.getInt(1));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        pupilsList.setAll(newPupils);
+
+        pupilsSkips.clear();
+        try(PreparedStatement st = conn.prepareStatement("SELECT DISTINCT pupil_id, was_at_lecture(pupil_id, ?) FROM unnest(?) AS pupil_id")){
+            st.setInt(1, editableEvent.get());
+            st.setArray(2, conn.createArrayOf("integer", pupilsList.toArray()));
+            ResultSet res = st.executeQuery();
+            while(res.next())
+                if(!res.getBoolean(2))
+                    pupilsSkips.add(res.getInt(1));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        pupilsListView.refresh();
+    }
+
     boolean isListEmpty(List<?> list){
         return list.isEmpty() || (list.size() == 1 && list.contains(null));
     }
 
     @FXML
     void initialize() {
-        {
-            chosenDate.bind(datePicker.valueProperty());
-            chosenLesson.bind(lessonPicker.valueProperty());
-            chosenDefaultTeacher.bind(defaultScheduleTeacherPicker.valueProperty());
-            chosenTeacher.bind(teacherPicker.valueProperty());
-            chosenRoom.bind(roomPicker.valueProperty());
-            chosenSubject.bind(subjectPicker.valueProperty());
-            chosenTheme.bind(themePicker.valueProperty());
-
-            chosenAddGroup.bind(addGroupPicker.valueProperty());
-        } // chosen- bindings
 
         lessonsOnDate.addListener((ListChangeListener<Integer>) c -> lessonPicker.setDisable(isListEmpty(c.getList())));
         lessonPicker.setValueFactory(new SpinnerValueFactory.ListSpinnerValueFactory<>(lessonsOnDate));
-        chosenLesson.addListener((observable, oldValue, newValue) -> {
+        lessonPicker.valueProperty().addListener((observable, oldValue, newValue) -> {
             Pair<LocalTime, LocalTime> p = lessonsBounds.get(newValue.intValue());
             LocalTime from = p.getKey(),
                     to = p.getValue();
             lessonBoundsText.setText("from %s to %s".formatted(from.toString(), to.toString()));
         });
-        chosenDate.addListener((observable, oldValue, newValue) -> {
+        datePicker.valueProperty().addListener((observable, oldValue, newValue) -> {
             try (PreparedStatement st = conn.prepareStatement("SELECT * FROM get_bells_schedule(?)")){
                 st.setDate(1, Date.valueOf(newValue));
                 ResultSet res = st.executeQuery();
@@ -325,20 +384,30 @@ public class EventsMenuController {
                 throw new RuntimeException(e);
             }
         });
-        chosenDate.addListener((observable, oldValue, newValue) -> {
+        datePicker.valueProperty().addListener((observable, oldValue, newValue) -> {
             updateAvailableDefaultTeachers();
             updateAvailableTeachers();
             updateAvailableRooms();
             updateAvailableSubjects();
         });
-        chosenLesson.addListener((observable, oldValue, newValue) -> {
+        lessonPicker.valueProperty().addListener((observable, oldValue, newValue) -> {
             updateAvailableDefaultTeachers();
             updateAvailableTeachers();
             updateAvailableRooms();
             updateAvailableSubjects();
         });
-        chosenSubject.addListener((observable, oldValue, newValue) -> updateAvailableThemes());
+        subjectPicker.valueProperty().addListener((observable, oldValue, newValue) -> updateAvailableThemes());
         editableEvent.addListener((observable, oldValue, newValue) -> updateGroups());
+        chosenGroups.addListener((ListChangeListener<? super Integer>) c -> updatePupils());
+
+        {
+            datePicker.valueProperty().addListener(c -> editableEvent.set(0));
+            lessonPicker.valueProperty().addListener(c -> editableEvent.set(0));
+            teacherPicker.valueProperty().addListener(c -> editableEvent.set(0));
+            roomPicker.valueProperty().addListener(c -> editableEvent.set(0));
+            subjectPicker.valueProperty().addListener(c -> editableEvent.set(0));
+            themePicker.valueProperty().addListener(c -> editableEvent.set(0));
+        }
         Function<Map<Integer, String>, Supplier<ListCell<Integer>>> cellFactoryBuilder = map -> (() -> new ListCell<>() {
             @Override
             protected void updateItem(Integer item, boolean empty) {
@@ -419,8 +488,22 @@ public class EventsMenuController {
 
                 {
                     this.setOnMouseClicked(event -> {
-                        if(event.getClickCount() >= 2 && item != null)
+                        if(event.getClickCount() >= 2 && item != null) {
+                            try(PreparedStatement st = conn.prepareStatement("DELETE FROM groups_to_events WHERE group_id = ? AND event_id = ?")){
+                                st.setInt(1, item);
+                                st.setInt(2, editableEvent.get());
+                                st.executeUpdate();
+                                conn.commit();
+                            } catch (SQLException e) {
+                                try{
+                                    conn.rollback();
+                                } catch (SQLException ex) {
+                                    throw new RuntimeException(ex);
+                                }
+                                throw new RuntimeException(e);
+                            }
                             chosenGroups.remove(item);
+                        }
                         groupsListView.refresh();
                     });
                 }
@@ -440,45 +523,70 @@ public class EventsMenuController {
 
             groupsListView.setItems(chosenGroups);
 
-        }
+        } // groupsListView
 
-        chosenGroups.addListener((ListChangeListener<Integer>) c -> {
-            while(c.next()) {
-                if (c.wasAdded()) {
-                    for(Integer group : c.getAddedSubList()){
-                       try(PreparedStatement st = conn.prepareStatement("INSERT INTO groups_to_events(group_id, event_id) VALUES (?, ?)")){
-                           st.setInt(1, group);
-                           st.setInt(2, editableEvent.get());
-                           st.executeUpdate();
-                           conn.commit();
-                       } catch (SQLException e) {
-                           try{
-                               conn.rollback();
-                           } catch (SQLException ex) {
-                               throw new RuntimeException(ex);
-                           }
-                           throw new RuntimeException(e);
-                       }
-                    }
-                }
-                if (c.wasRemoved()){
-                    for(Integer group : c.getRemoved()){
-                        try(PreparedStatement st = conn.prepareStatement("DELETE FROM groups_to_events WHERE group_id = ? AND event_id = ?")){
-                            st.setInt(1, group);
-                            st.setInt(2, editableEvent.get());
-                            st.executeUpdate();
-                            conn.commit();
-                        } catch (SQLException e) {
-                            try{
-                                conn.rollback();
-                            } catch (SQLException ex) {
-                                throw new RuntimeException(ex);
+        {
+            Supplier<ListCell<Integer>> cellFactory = () -> new ListCell<>() {
+
+                Integer item;
+
+                {
+                    this.setOnMouseClicked(event -> {
+                        if(item == null)
+                            return;
+                        if(pupilsSkips.contains(item)) {
+                            try(PreparedStatement st = conn.prepareStatement("DELETE FROM skips WHERE pupil_id = ? AND event_id = ?")){
+                                st.setInt(1, item);
+                                st.setInt(2, editableEvent.getValue());
+                                st.executeUpdate();
+                                conn.commit();
+                            } catch (SQLException e) {
+                                try{
+                                    conn.rollback();
+                                } catch (SQLException ex) {
+                                    throw new RuntimeException(ex);
+                                }
+                                throw new RuntimeException(e);
                             }
-                            throw new RuntimeException(e);
+                            pupilsSkips.remove(item);
                         }
+                        else{
+                            try(PreparedStatement st = conn.prepareStatement("INSERT INTO skips(pupil_id, event_id) VALUES (?, ?)")){
+                                st.setInt(1, item);
+                                st.setInt(2, editableEvent.getValue());
+                                st.executeUpdate();
+                                conn.commit();
+                            } catch (SQLException e) {
+                                try{
+                                    conn.rollback();
+                                } catch (SQLException ex) {
+                                    throw new RuntimeException(ex);
+                                }
+                                throw new RuntimeException(e);
+                            }
+                            pupilsSkips.add(item);
+                        }
+                        pupilsListView.refresh();
+                    });
+                }
+
+                @Override
+                protected void updateItem(Integer item, boolean empty) {
+                    super.updateItem(item, empty);
+                    this.item = item;
+                    if (item == null || empty) {
+                        setText(null);
+                    } else {
+                        if(pupilsSkips.contains(item))
+                            setTextFill(Color.RED);
+                        else setTextFill(Color.BLACK);
+                        setText(pupilFullNameById.get(item));
                     }
                 }
-            }
-        });
+            };
+            pupilsListView.setCellFactory(param -> cellFactory.get());
+
+            pupilsListView.setItems(pupilsList);
+        } // pupilsListView
     }
 }

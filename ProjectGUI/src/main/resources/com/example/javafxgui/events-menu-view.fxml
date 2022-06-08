@@ -93,7 +93,7 @@
                   <Font size="18.0" />
                </font>
             </Text>
-            <Button mnemonicParsing="false" onAction="#OnStartLesson" text="Start Lesson" GridPane.columnIndex="5" GridPane.rowIndex="5">
+            <Button mnemonicParsing="false" onAction="#OnStartLesson" text="Start lesson" GridPane.columnIndex="5" GridPane.rowIndex="5">
                <font>
                   <Font size="16.0" />
                </font>
@@ -126,6 +126,11 @@
                   <Font size="30.0" />
                </font>
             </Label>
+            <Button mnemonicParsing="false" onAction="#onLoadLesson" text="Load lesson" GridPane.columnIndex="5" GridPane.rowIndex="4">
+               <font>
+                  <Font size="16.0" />
+               </font>
+            </Button>
          </children>
       </GridPane>
    </children>
