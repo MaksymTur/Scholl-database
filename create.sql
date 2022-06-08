@@ -264,8 +264,8 @@ CREATE TABLE groups_to_schedule
 
 CREATE TABLE subject_to_class_certificate
 (
-    class_id   int REFERENCES classes  NOT NULL,
     subject_id int REFERENCES subjects NOT NULL,
+    class_id   int REFERENCES classes  NOT NULL,
 
     PRIMARY KEY (class_id, subject_id)
 );
@@ -700,6 +700,17 @@ begin
 end;
 $$ language plpgsql;
 
+CREATE FUNCTION get_subject_of_schedule(schedule_history_id integer)
+    RETURNS integer
+AS
+$$
+begin
+    return (SELECT subject_id
+            FROM schedule_history
+            WHERE schedule_history.schedule_history_id = get_subject_of_schedule.schedule_history_id);
+end;
+$$ language plpgsql;
+
 CREATE FUNCTION get_mandatory(subject_id integer)
     RETURNS boolean
 AS
@@ -708,6 +719,18 @@ begin
     return (SELECT mandatory
             FROM subjects
             WHERE subjects.subject_id = get_mandatory.subject_id);
+end;
+$$ language plpgsql;
+
+CREATE FUNCTION is_in_certificate(subject_id integer, class_id integer)
+    RETURNS boolean
+AS
+$$
+begin
+    return EXISTS(SELECT *
+                  FROM subject_to_class_certificate
+                  WHERE subject_to_class_certificate.subject_id = is_in_certificate.subject_id
+                    AND subject_to_class_certificate.class_id = is_in_certificate.class_id);
 end;
 $$ language plpgsql;
 
@@ -937,6 +960,24 @@ ALTER TABLE schedule_history
             bell_begin_time(change_date, bell_order) IS NOT NULL
             );
 
+ALTER TABLE schedule_history
+    ADD CONSTRAINT schedule_history_if_mandatory_then_class_not_null
+        CHECK (
+                get_subject_of_schedule(schedule_history_id) IS NULL
+                OR get_mandatory(get_subject_of_schedule(schedule_history_id)) = False
+                OR
+                (get_mandatory(get_subject_of_schedule(schedule_history_id)) = True
+                    AND class_id IS NOT NULL));
+
+ALTER TABLE schedule_history
+    ADD CONSTRAINT schedule_history_mandatory_subjects_only_if_in_certificate
+        CHECK (
+                get_subject_of_schedule(schedule_history_id) IS NULL
+                OR
+                (get_mandatory(get_subject_of_schedule(schedule_history_id)) =
+                 is_in_certificate(get_subject_of_schedule(schedule_history_id), class_id))
+            );
+
 CREATE OR REPLACE FUNCTION schedule_history_insert_trigger()
     RETURNS TRIGGER AS
 $$
@@ -980,6 +1021,24 @@ ALTER TABLE events
         CHECK (
                 get_quarter_of_theme(get_theme_of_event(event_id)) = get_now_quarter(event_date)
             );
+
+ALTER TABLE events
+    ADD CONSTRAINT events_mandatory_subjects_only_if_in_certificate
+        CHECK (
+                get_subject_of_theme(get_theme_of_event(event_id)) IS NULL
+                OR
+                (get_mandatory(get_subject_of_theme(get_theme_of_event(event_id))) =
+                 is_in_certificate(get_subject_of_theme(get_theme_of_event(event_id)), class_id))
+            );
+
+ALTER TABLE events
+    ADD CONSTRAINT events_if_mandatory_then_class_not_null
+        CHECK (
+                get_subject_of_theme(get_theme_of_event(event_id)) IS NULL
+                OR get_mandatory(get_subject_of_theme(get_theme_of_event(event_id))) = False
+                OR
+                (get_mandatory(get_subject_of_theme(get_theme_of_event(event_id))) = True
+                    AND class_id IS NOT NULL));
 
 ALTER TABLE marks
     ADD CONSTRAINT marks_pupil_was_at_lecture_check

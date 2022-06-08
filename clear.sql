@@ -106,7 +106,11 @@ drop function if exists get_group_class(integer) cascade;
 
 drop function if exists get_subject_of_theme(integer) cascade;
 
+drop function if exists get_subject_of_schedule(integer) cascade;
+
 drop function if exists get_mandatory(integer) cascade;
+
+drop function if exists is_in_certificate(integer, integer) cascade;
 
 drop function if exists get_theme_of_event(integer) cascade;
 
